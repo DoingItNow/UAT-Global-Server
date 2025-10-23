@@ -493,7 +493,11 @@ def parse_training_support_card(ctx: UmamusumeContext, img, train_type: Training
     til.relevant_count = relevant_count
         
 def parse_train_type(ctx: UmamusumeContext, img) -> TrainingType:
-    train_label = cv2.cvtColor(img[210:275, 0:210], cv2.COLOR_RGB2GRAY)
+    try:
+        train_label = cv2.cvtColor(img[210:275, 0:210], cv2.COLOR_RGB2GRAY)
+    except Exception as e:
+        log.error(f"parse_train_type: Failed to extract train_label")
+        raise TypeError("Failed to extract train_label from image")
     train_type = TrainingType.TRAINING_TYPE_UNKNOWN
     if image_match(train_label, REF_TRAINING_TYPE_SPEED).find_match:
         train_type = TrainingType.TRAINING_TYPE_SPEED
@@ -606,7 +610,12 @@ def find_support_card(ctx: UmamusumeContext, img):
 
 # 111 237 480 283
 def parse_cultivate_event(ctx: UmamusumeContext, img) -> tuple[str, list[int]]:
-    event_name_img = img[237:283, 111:480]
+    try:
+        event_name_img = img[237:283, 111:480]
+    except Exception as e:
+        log.error(f"event_name_img: Failed to extract event_name_img")
+        raise TypeError("Failed to extract event_name_img from image")
+
     event_name = ocr_line(event_name_img)
     event_selector_list = []
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
