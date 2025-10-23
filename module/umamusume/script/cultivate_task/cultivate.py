@@ -311,8 +311,21 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
         except Exception:
             pass
 
-        img = ctx.current_screen
-        train_type = parse_train_type(ctx, img)
+        # Sometimes the img fails to load. Retry
+        retries = 5
+        for attempt in range(retries):
+            try:
+                img = ctx.current_screen
+                train_type = parse_train_type(ctx, img)
+                break
+            except Exception as e:
+                if attempt < retries - 1:
+                    log.warning(f"parse_train_type: Failed to parse_train_type (attempt {attempt+1}/{retries}): {e}. Retrying in 5 seconds...")
+                    time.sleep(5)
+                else:
+                    log.error(f"parse_train_type: Failed to parse_train_type after {retries} attempts: {e}")
+                    raise TypeError("Failed to parse_train_type from image")
+
         if train_type == TrainingType.TRAINING_TYPE_UNKNOWN:
             return
         viewed = train_type.value
@@ -332,7 +345,14 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
                     max_retry = 3
                     ctx.ctrl.click_by_point(TRAINING_POINT_LIST[i])
                     img = ctx.ctrl.get_screen()
-                    while parse_train_type(ctx, img) != TrainingType(i + 1) and retry < max_retry:
+                    while retry < max_retry:
+                        try:
+                            result = parse_train_type(ctx, img)
+                        except Exception as e:
+                            log.warning(f"parse_train_type: Exception during retry loop (attempt {retry+1}/{max_retry}): {e}")
+                            result = TrainingType.TRAINING_TYPE_UNKNOWN
+                        if result == TrainingType(i + 1):
+                            break
                         if retry > 2:
                             ctx.ctrl.click_by_point(TRAINING_POINT_LIST[i])
                         time.sleep(0.2)
@@ -625,8 +645,22 @@ def script_cultivate_final_check(ctx: UmamusumeContext):
 def script_cultivate_event(ctx: UmamusumeContext):
     if hasattr(ctx.cultivate_detail, 'event_cooldown_until') and time.time() < ctx.cultivate_detail.event_cooldown_until:
         return
-    img = ctx.ctrl.get_screen()
-    event_name_img = img[237:283, 111:480]
+
+    # Sometimes the img fails to load. Retry
+    retries = 5
+    for attempt in range(retries):
+        try:
+            img = ctx.ctrl.get_screen()
+            event_name_img = img[237:283, 111:480]
+            break
+        except Exception as e:
+            if attempt < retries - 1:
+                log.warning(f"event_name_img: Failed to extract event_name_img (attempt {attempt+1}/{retries}): {e}. Retrying in 5 seconds...")
+                time.sleep(5)
+            else:
+                log.error(f"event_name_img: Failed to extract event_name_img after {retries} attempts: {e}")
+                raise TypeError("Failed to extract event_name_img from image")
+
     event_name = ocr_line(event_name_img, lang="en")
     choice_index = get_event_choice(ctx, event_name)
     if not isinstance(choice_index, int) or choice_index < 1:
