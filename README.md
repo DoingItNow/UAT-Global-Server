@@ -6,6 +6,10 @@
 welp got conscripted. For 2 years+ updates will slow down greatly now.
 I get free time on Saturdays only now (updates not guaranteed on Saturdays.)
 
+
+November 2nd.  
+going into the forest for about a week. Won't be here to reply to issues.Thank you for your understanding.
+
 ### please read the readme before opening a issue  
 
 ## New user? [Read this to improve your runs](#training-settings-guide)
@@ -31,8 +35,8 @@ If you're like me and is using this because you wont have access to your pc for 
     - **Claw machine**
     - **Running styles** 
     - **Alarm clock usage** 
-    - **Building fiendship early, focus on rainbows later** 
-    - **Optimal event choices (Knows when to build friendship/recover energy and mood)**
+    - **Almost every part of training is customizable (How much to focus on friendship, rainbows, hints ect ect and when)** 
+    - **Optimal event choices (Knows when to build friendship/recover energy and mood) [is also customizable for skill hunting]**
     - **Skipping bad turns with wit training**
     - **I'm not gonna list everything. Just search for keywords in the repo if you are wondering if a feature exist**
 
@@ -44,7 +48,9 @@ If you're like me and is using this because you wont have access to your pc for 
 
 - ✅ **Saving of presets**: Save training parameters for easy access in future runs
 
-- ✅ **Team trials execution mode**: its under Execution Mode not Task Selection. 
+- ✅ **Team trials execution mode**: its under Execution Mode not Task Selection.
+
+- ✅ **Human Behaviour**: Bot will Automatically shut down and restart based on configured timing (Runs 24 hours by default but not recommended), Inputs are also humanized.
 
 ### Demo Run
 - I'd say its about 80% as competent as a actual player. This makes the bot not just a fan/parent farmer but it's more than capable of producing ACES  
@@ -140,6 +146,8 @@ I will only focus on fixing issues for those (which is what I use personally.) E
 - Sometimes it fails to detect the hint (!)  
   - It’s animated, so either I kill performance and template match like 20 screenshots or we just take the L when it fails to detect like 5% of the time
   - Could also check the general area for red pixels but it led to a bunch of false positives from my testing
+- For most issues with outdated/wrong data  
+  - https://github.com/BrayAlter/UAT-Global-Server/issues/63#issuecomment-3296260518 (you can stop at npx vite build btw it builds directly to the right folder now).  
 
 ## Training settings guide
 - **Upon creating a new deck the first thing you should do is experiment with the values under advanced options**
@@ -165,13 +173,11 @@ I will only focus on fixing issues for those (which is what I use personally.) E
 ### Hint/Skills hunting
 - Raise the score of hints. This way the bot will always take the training with hints in them
   ![alt text](docs/hintHunting.png)
-- If you want to bot to select a certain event option to get a skill ur going to have to diy it for now
-  > Head over to UAT-Global-Server\resource\umamusume\data\event_data.json  
-  > Ctrl F find your event  
-  > Increase one of the stat gain to a very big number  
-  > Then that choice should get picked all the time   
+- If you want to bot to select a certain event option scroll to the bottom of task creation
+  > Expand Skill List  
+  > Search For Your Event  
+  > Select Event Choice  
   ![alt text](docs/huntHint.png)  
-  > Save a backup so it doesn't get overwritten when the repo gets updated
 
 ### STRUGGLING WITH THE CAREER
 #### Early game stat gain is too low
@@ -198,6 +204,11 @@ Something Something this is for educational purposes only. Please do not misuse 
 ![alt text](docs/topcunt.gif)
 
 ## Changelogs
+- **26/10/2025**   
+Made it easier to customize event choices
+- **25/10/2025**   
+Maybe fixed buying skills  
+Prep for aoharu hai
 - **20/10/2025**   
 Stuck clicking something failsafe part 2
 - **19/10/2025**   

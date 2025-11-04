@@ -380,14 +380,25 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             [0.11, 0.10, 0.12, 0.09],
             [0.03, 0.05, 0.15, 0.09]
         ])
+        def resolve_weights(sv_list, idx):
+            try:
+                arr = sv_list[idx]
+            except Exception:
+                arr = [0.11, 0.10, 0.01, 0.09]
+            if not isinstance(arr, (list, tuple)):
+                arr = [0.11, 0.10, 0.01, 0.09]
+            padded = list(arr) + [0.09] * (5 - len(arr))
+            if len(padded) < 4:
+                padded += [0.09] * (4 - len(padded))
+            return padded[:5]
         if date <= 24:
-            w_lv1, w_lv2, w_rainbow, w_hint = sv[0]
+            w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 0)
         elif 24 < date <= 48:
-            w_lv1, w_lv2, w_rainbow, w_hint = sv[1]
+            w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 1)
         elif 48 < date <= 60:
-            w_lv1, w_lv2, w_rainbow, w_hint = sv[2]
+            w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 2)
         else:
-            w_lv1, w_lv2, w_rainbow, w_hint = sv[3]
+            w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 3)
 
         from module.umamusume.define import SupportCardType, SupportCardFavorLevel
         from module.umamusume.asset.template import REF_TRAINING_HINT
@@ -1112,13 +1123,7 @@ def script_cultivate_learn_skill(ctx: UmamusumeContext):
         return
     learn_skill_list: list[list[str]]
     learn_skill_blacklist: list[str] = ctx.cultivate_detail.learn_skill_blacklist
-    if ctx.cultivate_detail.cultivate_finish or not ctx.cultivate_detail.learn_skill_only_user_provided:
-        if len(ctx.cultivate_detail.learn_skill_list) == 0:
-            learn_skill_list = SKILL_LEARN_PRIORITY_LIST
-        else:
-            # If user customizes skill priority, no longer use preset priority
-            learn_skill_list = ctx.cultivate_detail.learn_skill_list
-    else:
+    if ctx.cultivate_detail.learn_skill_only_user_provided:
         if len(ctx.cultivate_detail.learn_skill_list) == 0:
             ctx.ctrl.click_by_point(RETURN_TO_CULTIVATE_FINISH)
             ctx.cultivate_detail.learn_skill_done = True
@@ -1126,6 +1131,24 @@ def script_cultivate_learn_skill(ctx: UmamusumeContext):
             return
         else:
             learn_skill_list = ctx.cultivate_detail.learn_skill_list
+    else:
+        if len(ctx.cultivate_detail.learn_skill_list) == 0:
+            learn_skill_list = SKILL_LEARN_PRIORITY_LIST
+        else:
+            learn_skill_list = ctx.cultivate_detail.learn_skill_list
+
+    try:
+        log.info("Priority list:")
+        if isinstance(learn_skill_list, list):
+            for idx, plist in enumerate(learn_skill_list):
+                try:
+                    log.info(f"  priority {idx}: {', '.join(plist) if plist else ''}")
+                except Exception:
+                    pass
+        bl = ctx.cultivate_detail.learn_skill_blacklist or []
+        log.info(f"Blacklist: {', '.join(bl) if bl else ''}")
+    except Exception:
+        pass
 
     # Traverse entire page, find all clickable skills
     skill_list = []
@@ -1161,6 +1184,20 @@ def script_cultivate_learn_skill(ctx: UmamusumeContext):
             ctx.cultivate_detail.learn_skill_done = True
             ctx.ctrl.click_by_point(RETURN_TO_CULTIVATE_FINISH)
             return
+
+    try:
+        purchased = []
+        for s in skill_list:
+            try:
+                if s.get('available') is False:
+                    n = s.get('skill_name_raw') or s.get('skill_name') or ''
+                    if n:
+                        purchased.append(n)
+            except Exception:
+                continue
+        log.info(f"Purchased skills: {', '.join(purchased) if purchased else ''}")
+    except Exception:
+        pass
 
     log.debug("Current skill state: " + str(skill_list))
 
