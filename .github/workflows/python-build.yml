@@ -49,8 +49,9 @@ jobs:
       run: |
         cd web
         npm run build
+        dir dist
         cd ..
-        Copy-Item -Path "public/*" -Destination "public/" -Recurse -Force
+        Copy-Item -Path "web/dist/*" -Destination "public/" -Recurse -Force
 
     - name: Build with PyInstaller
       run: |

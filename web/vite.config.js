@@ -57,7 +57,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: "../public",
+    outDir: "../web/dist",
     assetsDir: "assets",
     emptyOutDir: true
   }
