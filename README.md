@@ -1,14 +1,13 @@
+Due to recent ui changes please report any races that fails to get detected so i can update their images
+
 # UMAMUSUME AUTO TRAINER
+
 ![UAT](docs/main.png)
 
 ---
 
 welp got conscripted. For 2 years+ updates will slow down greatly now.
 I get free time on Saturdays only now (updates not guaranteed on Saturdays.)
-
-
-November 2nd.  
-going into the forest for about a week. Won't be here to reply to issues.Thank you for your understanding.
 
 ### please read the readme before opening a issue  
 
@@ -67,14 +66,19 @@ Running this 24/7 looks sus as hell so I would suggest turning it off for a few 
 you can also edit the start and end time in `main.py` (24 hours format) to dictate when the bot can run)
 
 ## 📦 Installation & Setup
+Tutorial someone made: https://youtu.be/v1m9Plw7M3Y  
 
 #### Clone Repository
 ```bash
 git clone https://github.com/oofmatoes/UAT-Global-Server
 cd UAT-Global-Server
 ```
+  
+
 
 ### Emulator Setup
+
+# DO NOT LOWER YOUR FPS BELOW 30
 
 - **Only tested on bluestacks pie64 (no longer testing on bluestacks its too unreliable) and MuMuPlayer (what I use personally)**
 - **Resolution**: 720 × 1280 (Portrait mode)
@@ -104,6 +108,8 @@ Or just run start.bat
 ---
 
 ## ⚠️ Important Notes
+
+As single run mode is deprecated if you wish to emulated it you can enable "Manual skill purchase at the end" to achieve the same thing 
 
 ### Game Settings
 
@@ -161,10 +167,10 @@ I will only focus on fixing issues for those (which is what I use personally.) E
   ![alt text](docs/capSpeed.png)
 - Stat caps work like this
  - Soft cap  
-  When at least 80% of the desired stat that training gets a 20% score nerf during training selection
+  When at 70,80,90% to stat goal -10 20 and 30% to score respectively  
  - Hard cap  
-  After exceeding the stat cap the training will now recieve a 40% score nerf during training selection
- - HOWEVER IT IS ENCOURAGE THAT YOU RE-EVALUATE YOUR DECK INSTEAD. THIS WAY THE BOT CAN CLICK THE BEST OPTION 100% OF THE TIME INSTEAD OF ARTIFICIALLY LIMITING
+  95% or higher will now have 0 score (IF YOU SEE THIS THERE IS A ISSUE WITH YOUR DECK AND THE BOT WILL PERFORM POORLY)
+ - IT IS ENCOURAGED THAT YOU RE-EVALUATE YOUR DECK INSTEAD. THIS WAY THE BOT CAN CLICK THE BEST OPTION 100% OF THE TIME INSTEAD OF ARTIFICIALLY LIMITING AND CLICKING A WORSE OPTION 
 
 ### STRUGGLING WITH A CERTAIN STAT
 - If you are struggling with a certain stat (Guts) you can raise the summer weight of that stat (while reducing others) to encourage the bot totake advantage of the LV5 summer facilities
@@ -204,6 +210,37 @@ Something Something this is for educational purposes only. Please do not misuse 
 ![alt text](docs/topcunt.gif)
 
 ## Changelogs
+- **10/16/2025**  
+Attempted to fix some crashes   
+patched up team trials execution mode  
+
+- **10/15/2025**  
+updated some support card names  
+aoharu (unity cup) team name selection works now
+
+- **10/14/2025**  
+updated skill list  
+Fixed getting stuck in support card selection
+Stat cap score calc hard cap
+default target attributes changed  
+
+- **10/12/2025**   
+"Use last selected parents" Option added in webui.  
+support for team trials quick mode
+
+- **10/11/2025 (Game Updated)**  
+Fixed bot breaking
+- **10/11/2025**   (forgot to push lol)  
+Enemy team selection for races 1 2 3 4 (aoharu)  
+Fixed "Auto select team" taking forever (aoharu)  
+- **10/10/2025**   
+Bare minimum aoharu implementation. (60%)
+  - able to reach the end assuming you already beat team zenith
+  - customizable special training parameters
+  - customizable spirit explosion parameters
+  - ignore wit spirit explosions when energy high bonus score to wit spirit explosion if energy low
+
+  Customizable and more intuitive "Stuck" handling 
 - **26/10/2025**   
 Made it easier to customize event choices
 - **25/10/2025**   

@@ -87,7 +87,14 @@ class Executor:
     def detect_ui(self, ui_list: list[UI], target) -> UI:
         target = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
         self.ensure_pool()
-        futures = {self.executor.submit(self.detect_ui_sub, ui, target): ui for ui in ui_list}
+        if self.executor is None or getattr(self.executor, "_shutdown", False):
+            return NOT_FOUND_UI
+        try:
+            futures = {self.executor.submit(self.detect_ui_sub, ui, target): ui for ui in ui_list}
+        except RuntimeError as e:
+            if "interpreter shutdown" in str(e).lower():
+                return NOT_FOUND_UI
+            raise
         found = None
         for _ in as_completed(futures):
             if len(self.detect_ui_results) > 0:
@@ -167,12 +174,24 @@ class Executor:
                 while self.active and task.task_status == TaskStatus.TASK_STATUS_RUNNING:
                     time.sleep(30)
                     try:
+                        try:
+                            from bot.base.runtime_state import update_watchdog, get_watchdog_threshold
+                            watchdog_threshold = int(get_watchdog_threshold())
+                        except Exception:
+                            watchdog_threshold = 3
+                            update_watchdog = None 
+
                         img = controller.get_screen(to_gray=True)
                         if img is None:
                             unchanged += 1
-                            print(f"{unchanged}/3", flush=True)
                             try:
-                                log.info(f"watchdog {unchanged}/3")
+                                if update_watchdog:
+                                    update_watchdog(unchanged)
+                            except Exception:
+                                pass
+                            print(f"{unchanged}/{watchdog_threshold}", flush=True)
+                            try:
+                                log.info(f"watchdog {unchanged}/{watchdog_threshold}")
                             except Exception:
                                 pass
                         else:
@@ -180,9 +199,14 @@ class Executor:
                             if last_img is None:
                                 last_img = cur
                                 unchanged = 0
-                                print("0/3", flush=True)
                                 try:
-                                    log.info("watchdog 0/3")
+                                    if update_watchdog:
+                                        update_watchdog(unchanged)
+                                except Exception:
+                                    pass
+                                print(f"0/{watchdog_threshold}", flush=True)
+                                try:
+                                    log.info(f"watchdog 0/{watchdog_threshold}")
                                 except Exception:
                                     pass
                                 continue
@@ -198,24 +222,34 @@ class Executor:
                                 brightness = 0.0
                             if score < 1.0 or brightness < 8.0:
                                 unchanged += 1
-                                print(f"{unchanged}/3", flush=True)
                                 try:
-                                    log.info(f"watchdog {unchanged}/3")
+                                    if update_watchdog:
+                                        update_watchdog(unchanged)
+                                except Exception:
+                                    pass
+                                print(f"{unchanged}/{watchdog_threshold}", flush=True)
+                                try:
+                                    log.info(f"watchdog {unchanged}/{watchdog_threshold}")
                                 except Exception:
                                     pass
                             else:
                                 unchanged = 0
-                                print("0/3", flush=True)
                                 try:
-                                    log.info("watchdog 0/3")
+                                    if update_watchdog:
+                                        update_watchdog(unchanged)
+                                except Exception:
+                                    pass
+                                print(f"0/{watchdog_threshold}", flush=True)
+                                try:
+                                    log.info(f"watchdog 0/{watchdog_threshold}")
                                 except Exception:
                                     pass
                             last_img = cur
 
-                        if unchanged >= 3:
-                            print("3/3 restarting app", flush=True)
+                        if unchanged >= watchdog_threshold:
+                            print(f"{watchdog_threshold}/{watchdog_threshold} restarting app", flush=True)
                             try:
-                                log.info("watchdog 3/3 restarting app")
+                                log.info(f"watchdog {watchdog_threshold}/{watchdog_threshold} restarting app")
                             except Exception:
                                 pass
                             try:
@@ -238,9 +272,14 @@ class Executor:
                                     pass
                             unchanged = 0
                             last_img = None
-                            print("0/3", flush=True)
                             try:
-                                log.info("watchdog 0/3")
+                                if update_watchdog:
+                                    update_watchdog(unchanged)
+                            except Exception:
+                                pass
+                            print(f"0/{watchdog_threshold}", flush=True)
+                            try:
+                                log.info(f"watchdog 0/{watchdog_threshold}")
                             except Exception:
                                 pass
                             continue

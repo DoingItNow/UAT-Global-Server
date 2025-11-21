@@ -16,20 +16,23 @@ class SupportCardInfo:
     favor: SupportCardFavorLevel
     has_event: bool
     # Youth Cup section
-    can_incr_aoharu_train: bool
+    can_incr_special_training: bool
+    spirit_explosion: bool
 
     def __init__(self,
                 name: str = "support_card",
                 card_type: SupportCardType = SupportCardType.SUPPORT_CARD_TYPE_UNKNOWN,
                 favor: SupportCardFavorLevel = SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_UNKNOWN,
                 has_event: bool = False,
-                can_incr_aoharu_train: bool = False,
+                can_incr_special_training: bool = False,
+                spirit_explosion: bool = False,
                 center: tuple[int, int] | None = None):
         self.name = name
         self.card_type = card_type
         self.favor = favor
         self.has_event = has_event
-        self.can_incr_aoharu_train = can_incr_aoharu_train
+        self.can_incr_special_training = can_incr_special_training
+        self.spirit_explosion = spirit_explosion
         self.center = center
 
 

@@ -7,10 +7,12 @@ from module.umamusume.asset import *
 from module.umamusume.define import ScenarioType, SupportCardFavorLevel, SupportCardType
 from module.umamusume.types import SupportCardInfo
 from bot.recog.image_matcher import image_match, compare_color_equal
+from module.umamusume.asset.template import *
 from bot.recog.ocr import ocr_line, find_similar_text, ocr_digits
 
 import bot.base.log as logger
 log = logger.get_logger(__name__)
+
 
 class AoharuHaiScenario(BaseScenario):
     def __init__(self):
@@ -18,16 +20,16 @@ class AoharuHaiScenario(BaseScenario):
 
     def scenario_type(self) -> ScenarioType:
         return ScenarioType.SCENARIO_TYPE_AOHARUHAI
-    
+
     def scenario_name(self) -> str:
         return "青春杯"
-    
+
     def get_date_img(self, img: any) -> any:
         return img[40:70, 160:370]
-    
+
     def get_turn_to_race_img(self, img) -> any:
         return img[70:120, 30:90]
-    
+
     def parse_training_result(self, img: any) -> list[int]:
         # Use digital OCR to achieve higher accuracy
         sub_img_speed_incr = img[800:830, 30:140]
@@ -105,51 +107,86 @@ class AoharuHaiScenario(BaseScenario):
         inc = 115
         support_card_list_info_result: list[SupportCardInfo] = []
 
+        
         for i in range(5):
-            support_card_icon = img[base_y:base_y + inc, base_x: base_x + 145]
+            roi = img[base_y:base_y + inc, base_x: base_x + 145]
+            if roi is None or getattr(roi, 'size', 0) == 0:
+                base_y += inc
+                continue
 
-            # Has Youth Cup training, and Youth Cup friendship not full
-            can_incr_aoharu_train = detect_aoharu_train_arrow(support_card_icon) and aoharu_train_not_full(support_card_icon)
+            roi_gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            ay1 = 0
+            ay2 = 37
+            ax1 = 116
+            ax2 = 141
+            arrow_roi = roi_gray[ay1:ay2, ax1:ax2]
 
-            # Check favor level
-            support_card_icon = cv2.cvtColor(support_card_icon, cv2.COLOR_BGR2RGB)
-            favor_process_check_list = [support_card_icon[106, 56], support_card_icon[106, 60]]
+            arrow_roi3 = roi_gray[max(ay1 - 10, 0):ay2, ax1:ax2]
+
+            can_incr_special_training = False
+            for ref, sub_roi in (
+                (REF_AOHARU_SPECIAL_TRAIN, arrow_roi),
+                (REF_AOHARU_SPECIAL_TRAIN2, arrow_roi),
+                (REF_AOHARU_SPECIAL_TRAIN3, arrow_roi3),
+            ):
+                try:
+                    if image_match(sub_roi, ref).find_match:
+                        can_incr_special_training = True
+                        break
+                except Exception:
+                    pass
+
+            spirit_explosion = False
+            if not can_incr_special_training:
+                for ref, sub_roi in (
+                    (REF_SPIRIT_EXPLOSION, arrow_roi),
+                    (REF_SPIRIT_EXPLOSION2, arrow_roi),
+                    (REF_SPIRIT_EXPLOSION3, arrow_roi3),
+                ):
+                    try:
+                        if image_match(sub_roi, ref).find_match:
+                            spirit_explosion = True
+                            break
+                    except Exception:
+                        pass
+
+            # Favor detection (color)
+            roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
+            favor_process_check_list = [roi_rgb[106, 56], roi_rgb[106, 60]]
             support_card_favor_process = SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_UNKNOWN
-            for support_card_favor_process_pos in favor_process_check_list:
-                if compare_color_equal(support_card_favor_process_pos, [255, 235, 120]):
+            for pix in favor_process_check_list:
+                if compare_color_equal(pix, [255, 235, 120]):
                     support_card_favor_process = SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_4
-                elif compare_color_equal(support_card_favor_process_pos, [255, 173, 30]):
+                elif compare_color_equal(pix, [255, 173, 30]):
                     support_card_favor_process = SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_3
-                elif compare_color_equal(support_card_favor_process_pos, [162, 230, 30]):
+                elif compare_color_equal(pix, [162, 230, 30]):
                     support_card_favor_process = SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_2
-                elif (compare_color_equal(support_card_favor_process_pos, [42, 192, 255]) or
-                      compare_color_equal(support_card_favor_process_pos, [109, 108, 117])):
+                elif (compare_color_equal(pix, [42, 192, 255]) or compare_color_equal(pix, [109, 108, 117])):
                     support_card_favor_process = SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_1
                 if support_card_favor_process != SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_UNKNOWN:
                     break
 
-            # Check support card type
+            # Support card type (template match for type icon only)
             support_card_type = SupportCardType.SUPPORT_CARD_TYPE_UNKNOWN
-            support_card_icon = cv2.cvtColor(support_card_icon, cv2.COLOR_RGB2GRAY)
             match_center = None
             for ref, t in (
-                (REF_SUPPORT_CARD_TYPE_SPEED,SupportCardType.SUPPORT_CARD_TYPE_SPEED),
-                (REF_SUPPORT_CARD_TYPE_STAMINA,SupportCardType.SUPPORT_CARD_TYPE_STAMINA),
-                (REF_SUPPORT_CARD_TYPE_POWER,SupportCardType.SUPPORT_CARD_TYPE_POWER),
-                (REF_SUPPORT_CARD_TYPE_WILL,SupportCardType.SUPPORT_CARD_TYPE_WILL),
-                (REF_SUPPORT_CARD_TYPE_INTELLIGENCE,SupportCardType.SUPPORT_CARD_TYPE_INTELLIGENCE),
-                (REF_SUPPORT_CARD_TYPE_FRIEND,SupportCardType.SUPPORT_CARD_TYPE_FRIEND),
+                (REF_SUPPORT_CARD_TYPE_SPEED, SupportCardType.SUPPORT_CARD_TYPE_SPEED),
+                (REF_SUPPORT_CARD_TYPE_STAMINA, SupportCardType.SUPPORT_CARD_TYPE_STAMINA),
+                (REF_SUPPORT_CARD_TYPE_POWER, SupportCardType.SUPPORT_CARD_TYPE_POWER),
+                (REF_SUPPORT_CARD_TYPE_WILL, SupportCardType.SUPPORT_CARD_TYPE_WILL),
+                (REF_SUPPORT_CARD_TYPE_INTELLIGENCE, SupportCardType.SUPPORT_CARD_TYPE_INTELLIGENCE),
+                (REF_SUPPORT_CARD_TYPE_FRIEND, SupportCardType.SUPPORT_CARD_TYPE_FRIEND),
             ):
-                r = image_match(support_card_icon, ref)
+                r = image_match(roi_gray, ref)
                 if r.find_match:
                     support_card_type = t
-                    match_center = r.center_point  # ROI coords
+                    match_center = r.center_point
                     break
 
             if support_card_type == SupportCardType.SUPPORT_CARD_TYPE_UNKNOWN and support_card_favor_process != SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_UNKNOWN:
                 support_card_type = SupportCardType.SUPPORT_CARD_TYPE_NPC
 
-            h_local, w_local = support_card_icon.shape[:2]
+            h_local, w_local = roi.shape[:2]
             cx = base_x + (w_local // 2)
             cy = base_y + (h_local // 2)
             if isinstance(match_center, (tuple, list)) and len(match_center) >= 2:
@@ -168,7 +205,8 @@ class AoharuHaiScenario(BaseScenario):
                 name=name_map.get(support_card_type, "support_card"),
                 card_type=support_card_type,
                 favor=support_card_favor_process,
-                can_incr_aoharu_train=can_incr_aoharu_train
+                can_incr_special_training=can_incr_special_training,
+                spirit_explosion=spirit_explosion
             )
             info.center = (cx, cy)
             support_card_list_info_result.append(info)
@@ -176,80 +214,22 @@ class AoharuHaiScenario(BaseScenario):
             base_y += inc
 
         return support_card_list_info_result
-    
-# Detect if there's an arrow icon in the upper right corner of support card, while excluding exclamation marks to prevent false positives
-# Input image must be colored
-def detect_aoharu_train_arrow(support_card_icon):
-    support_card_icon = cv2.cvtColor(support_card_icon, cv2.COLOR_BGR2RGB)
-    # Define upper right corner detection area
-    arrow_region_x_start = 110
-    arrow_region_x_end = 145  
-    arrow_region_y_start = 0
-    arrow_region_y_end = 40
-    
-    arrow_region = support_card_icon[arrow_region_y_start:arrow_region_y_end, 
-                                     arrow_region_x_start:arrow_region_x_end]
-    
-    # Define possible color range for arrows (check orange)
-    orange_lower = [240, 100, 50]
-    orange_upper = [255, 180, 100]
-    
-    # Define red pixel range (for detecting exclamation marks)
-    red_lower = [180, 30,50]
-    red_upper = [255, 100, 150]
-    
-    # Calculate number of orange pixels and red pixels
-    orange_pixels = 0
-    red_pixels = 0
-    total_pixels = arrow_region.shape[0] * arrow_region.shape[1]
-    
-    for y in range(arrow_region.shape[0]):
-        for x in range(arrow_region.shape[1]):
-            pixel = arrow_region[y, x]
-            
-            # Detect orange pixels
-            if (orange_lower[0] <= pixel[0] <= orange_upper[0] and
-                orange_lower[1] <= pixel[1] <= orange_upper[1] and
-                orange_lower[2] <= pixel[2] <= orange_upper[2]):
-                orange_pixels += 1
-            # Detect red pixels
-            elif (red_lower[0] <= pixel[0] <= red_upper[0] and
-                  red_lower[1] <= pixel[1] <= red_upper[1] and
-                  red_lower[2] <= pixel[2] <= red_upper[2]):
-                red_pixels += 1
-    
-    orange_ratio = orange_pixels / total_pixels if total_pixels > 0 else 0
-    red_ratio = red_pixels / total_pixels if total_pixels > 0 else 0
-    
-    has_arrow = False
-    
-    # First exclude exclamation marks: if red pixel ratio is too high, judge as exclamation mark
-    if red_ratio > 0.2:
-        has_arrow = False
-    # If orange pixel ratio exceeds threshold
-    elif (orange_ratio > 0.05):
-        has_arrow = True
- 
-    return has_arrow
 
 
-# Detect if the Youth Cup training value in the lower left corner is not full
-# If it is full or the UI does not exist (e.g., soul explosion has been triggered, return false)
-# Otherwise, return true
+
 def aoharu_train_not_full(support_card_icon) -> bool:
     support_card_icon = cv2.cvtColor(support_card_icon, cv2.COLOR_BGR2RGB)
     avatar_region_x_start = 5
     avatar_region_x_end = 45
-    avatar_region_y_start = 70  
+    avatar_region_y_start = 70
     avatar_region_y_end = 110
-    
-    avatar_region = support_card_icon[avatar_region_y_start:avatar_region_y_end,
-                                      avatar_region_x_start:avatar_region_x_end]
-    
+
+    avatar_region = support_card_icon[avatar_region_y_start:avatar_region_y_end, avatar_region_x_start:avatar_region_x_end]
+
     total_pixels = avatar_region.shape[0] * avatar_region.shape[1]
     if total_pixels == 0:
         return False
-    
+
     # Detect gray
     grey_lower = [100, 100, 100]
     grey_upper = [150, 150, 150]
@@ -262,12 +242,12 @@ def aoharu_train_not_full(support_card_icon) -> bool:
                 grey_lower[1] <= pixel[1] <= grey_upper[1] and
                 grey_lower[2] <= pixel[2] <= grey_upper[2]):
                 grey_pixels += 1
-    
+
     grey_ratio = grey_pixels / total_pixels
-    
+
     if grey_ratio > 0.05:
         status = True
     else:
         status = False
-    
+
     return status

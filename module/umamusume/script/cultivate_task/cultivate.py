@@ -41,24 +41,17 @@ def script_cultivate_main_menu(ctx: UmamusumeContext):
         
         if has_extra_race:
             log.info("🏆 Extra races available for current date - prioritizing races above all else")
-            # Force parse training info to finish so we can proceed to race handling
-            ctx.cultivate_detail.turn_info.parse_train_info_finish = True
-            # Set race operation to override everything else
             if ctx.cultivate_detail.turn_info.turn_operation is None:
                 ctx.cultivate_detail.turn_info.turn_operation = TurnOperation()
             ctx.cultivate_detail.turn_info.turn_operation.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_RACE
-            
-            # Find and set the specific race ID from user's selected races
-            matching_races = [race_id for race_id in ctx.cultivate_detail.extra_race_list 
-                             if race_id in available_races]
+            matching_races = [race_id for race_id in ctx.cultivate_detail.extra_race_list if race_id in available_races]
             if matching_races:
-                target_race_id = matching_races[0]  # Pick the first available selected race
+                target_race_id = matching_races[0]
                 ctx.cultivate_detail.turn_info.turn_operation.race_id = target_race_id
                 log.info(f"🎯 Set specific race ID: {target_race_id} from user's selected races")
             else:
                 log.warning("⚠️ No matching races found in available races for current date")
-            
-            # Mark main menu parsing as complete
+            ctx.cultivate_detail.turn_info.parse_train_info_finish = True
             ctx.cultivate_detail.turn_info.parse_main_menu_finish = True
             return
         
@@ -373,6 +366,7 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
         for thread in threads:
             thread.join()
 
+        
         date = ctx.cultivate_detail.turn_info.date
         sv = getattr(ctx.cultivate_detail, 'score_value', [
             [0.11, 0.10, 0.01, 0.09],
@@ -387,10 +381,15 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
                 arr = [0.11, 0.10, 0.01, 0.09]
             if not isinstance(arr, (list, tuple)):
                 arr = [0.11, 0.10, 0.01, 0.09]
-            padded = list(arr) + [0.09] * (5 - len(arr))
-            if len(padded) < 4:
-                padded += [0.09] * (4 - len(padded))
-            return padded[:5]
+            base = list(arr[:4])
+            if len(base) < 4:
+                base += [0.09] * (4 - len(base))
+            special_defaults = [0.15, 0.12, 0.09, 0.07]
+            try:
+                special = arr[4]
+            except Exception:
+                special = special_defaults[idx if 0 <= idx < len(special_defaults) else 0]
+            return base + [special]
         if date <= 24:
             w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 0)
         elif 24 < date <= 48:
@@ -399,6 +398,13 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 2)
         else:
             w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 3)
+        try:
+            se_weights = getattr(getattr(ctx, 'task', None), 'detail', None)
+            se_weights = getattr(se_weights, 'spirit_explosion', None)
+            if not isinstance(se_weights, (list, tuple)) or len(se_weights) != 5:
+                se_weights = [0.9, 0.9, 0.9, 0.5, 0.5]
+        except Exception:
+            se_weights = [0.9, 0.9, 0.9, 0.5, 0.5]
 
         from module.umamusume.define import SupportCardType, SupportCardFavorLevel
         from module.umamusume.asset.template import REF_TRAINING_HINT
@@ -412,11 +418,18 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
         names = ["Speed", "Stamina", "Power", "Guts", "Wit"]
         computed_scores = [0.0, 0.0, 0.0, 0.0, 0.0]
         rbc_counts = [0, 0, 0, 0, 0]
+        special_counts = [0, 0, 0, 0, 0]
+        spirit_counts = [0, 0, 0, 0, 0]
 
         log.info("Score:")
         log.info(f"lv1: {w_lv1}")
         log.info(f"lv2: {w_lv2}")
         log.info(f"Rainbows: {w_rainbow}")
+        try:
+            if ctx.cultivate_detail.scenario.scenario_type() == ScenarioType.SCENARIO_TYPE_AOHARUHAI:
+                log.info(f"Special Training weight: {w_special}")
+        except Exception:
+            pass
 
         for idx in range(5):
             til = ctx.cultivate_detail.turn_info.training_info_list[idx]
@@ -429,6 +442,14 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             for sc in (getattr(til, "support_card_info_list", []) or []):
                 favor = getattr(sc, "favor", SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_UNKNOWN)
                 ctype = getattr(sc, "card_type", SupportCardType.SUPPORT_CARD_TYPE_UNKNOWN)
+                try:
+                    stc = int(getattr(sc, 'special_training_count', 1 if getattr(sc, 'can_incr_special_training', False) else 0))
+                except Exception:
+                    stc = 1 if getattr(sc, 'can_incr_special_training', False) else 0
+                if stc > 0:
+                    special_counts[idx] += stc
+                if bool(getattr(sc, 'spirit_explosion', False)):
+                    spirit_counts[idx] += 1
                 if ctype == SupportCardType.SUPPORT_CARD_TYPE_NPC:
                     npc += 1
                     score += 0.05
@@ -466,6 +487,21 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             log.info(f"  Rainbows: {rbc}")
             if npc:
                 log.info(f"  NPCs: {npc}")
+            try:
+                if ctx.cultivate_detail.scenario.scenario_type() == ScenarioType.SCENARIO_TYPE_AOHARUHAI:
+                    log.info(f"  special training: {special_counts[idx]}")
+                    if spirit_counts[idx] > 0:
+                        try:
+                            d = int(ctx.cultivate_detail.turn_info.date)
+                        except Exception:
+                            d = -1
+                        if isinstance(d, int) and d >= 46:
+                            pct = min(30, d - 45)
+                            log.info(f"  spirit explosion {spirit_counts[idx]}: (-{pct}% score: date penalty)")
+                        else:
+                            log.info(f"  Spirit explosions: {spirit_counts[idx]}")
+            except Exception:
+                pass
             hint_bonus = 0.0
             try:
                 hint_bonus = w_hint if bool(getattr(til, 'has_hint', False)) else 0.0
@@ -474,6 +510,49 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             if hint_bonus > 0:
                 log.info(f"  Hint bonus: +{hint_bonus:.3f}")
             score += hint_bonus
+            stc_lane = special_counts[idx]
+            if stc_lane > 0:
+                score += float(w_special) * float(stc_lane)
+            try:
+                se_w = float(se_weights[idx]) if isinstance(se_weights, (list, tuple)) and len(se_weights) == 5 else 0.0
+            except Exception:
+                se_w = 0.0
+
+            try:
+                is_aoharu = (ctx.cultivate_detail.scenario.scenario_type() == ScenarioType.SCENARIO_TYPE_AOHARUHAI)
+            except Exception:
+                is_aoharu = False
+            if is_aoharu and idx == 4 and se_w != 0.0 and spirit_counts[idx] > 0:
+                try:
+                    from bot.conn.fetch import read_energy
+                    energy = int(read_energy())
+                except Exception:
+                    energy = None
+                if energy is not None:
+                    if energy > 80:
+                        log.info("Energy near full ignoring wit spirit explosion")
+                        se_w = 0.0
+                    elif energy < 10:
+                        log.info("Energy near 0 ignoring wit spirit explosion")
+                        se_w = 0.0
+                    else:
+                        log.info("Energy not full prioritizing wit spirit explosion")
+                        se_w = se_w * 2.0
+
+            se_lane = spirit_counts[idx]
+            if se_lane > 0 and se_w != 0.0:
+                try:
+                    d = int(ctx.cultivate_detail.turn_info.date)
+                except Exception:
+                    d = -1
+                if isinstance(d, int) and d >= 46:
+                    pct = min(30, d - 45)
+                else:
+                    pct = 0
+                mult = 1.0 - (float(pct) / 100.0)
+                se_bonus = se_w * float(se_lane) * mult
+                log.info(f"  Spirit explosion bonus: +{se_bonus:.3f}")
+                score += se_bonus
             try:
                 if getattr(ctx.cultivate_detail, 'compensate_failure', True):
                     fr_val = int(getattr(til, 'failure_rate', -1))
@@ -489,13 +568,23 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
                 if isinstance(expect_attr, list) and len(expect_attr) == 5:
                     uma = ctx.cultivate_detail.turn_info.uma_attribute
                     curr_vals = [uma.speed, uma.stamina, uma.power, uma.will, uma.intelligence]
-                    if curr_vals[idx] >= expect_attr[idx]:
+                    cap_val = float(expect_attr[idx])
+                    curr_val = float(curr_vals[idx])
+                    if cap_val > 0:
+                        ratio = curr_val / cap_val
                         label = names[idx]
-                        log.info(f"  {label} cap reached: -40% to score")
-                        score *= 0.6
-                    elif expect_attr[idx] > 0 and curr_vals[idx] >= 0.8 * expect_attr[idx]:
-                        log.info("  Almost at goal -20% to score")
-                        score *= 0.8
+                        if ratio > 0.95:
+                            log.info(f"{label} >95% of target: -100% to score")
+                            score *= 0.0
+                        elif ratio >= 0.90:
+                            log.info(f"{label} >=90% of target: -30% to score")
+                            score *= 0.7
+                        elif ratio >= 0.80:
+                            log.info(f"{label} >=80% of target: -20% to score")
+                            score *= 0.8
+                        elif ratio >= 0.70:
+                            log.info(f"{label} >=70% of target: -10% to score")
+                            score *= 0.9
             except Exception:
                 pass
             try:
@@ -611,6 +700,12 @@ def script_umamusume_select(ctx: UmamusumeContext):
 
 
 def script_extend_umamusume_select(ctx: UmamusumeContext):
+    try:
+        if getattr(ctx.cultivate_detail, 'use_last_parents', False):
+            ctx.ctrl.click_by_point(TO_CULTIVATE_PREPARE_NEXT)
+            return
+    except Exception:
+        pass
     ctx.ctrl.click_by_point(TO_CULTIVATE_PREPARE_AUTO_SELECT)
     time.sleep(1)
     ctx.ctrl.click_by_point(TO_CULTIVATE_PREPARE_INCLUDE_GUEST)
@@ -635,12 +730,36 @@ def script_follow_support_card_select(ctx: UmamusumeContext):
         for __ in range(3):
             if find_support_card(ctx, img):
                 return
+            try:
+                img_gray_chk = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                x1, y1, x2, y2 = 279, 48, 326, 76
+                h, w = img_gray_chk.shape[:2]
+                x1c = max(0, min(w, x1)); x2c = max(x1c, min(w, x2))
+                y1c = max(0, min(h, y1)); y2c = max(y1c, min(h, y2))
+                roi = img_gray_chk[y1c:y2c, x1c:x2c]
+                if not image_match(roi, REF_BORROW_CARD).find_match:
+                    log.info("Incorrect ui stopping card search")
+                    return
+            except Exception:
+                pass
             ctx.ctrl.swipe(x1=350, y1=1000, x2=350, y2=400, duration=600, name="scroll down list")
             time.sleep(0.5)
             img = ctx.ctrl.get_screen()
         for __ in range(3):
             if find_support_card(ctx, img):
                 return
+            try:
+                img_gray_chk = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                x1, y1, x2, y2 = 279, 48, 326, 76
+                h, w = img_gray_chk.shape[:2]
+                x1c = max(0, min(w, x1)); x2c = max(x1c, min(w, x2))
+                y1c = max(0, min(h, y1)); y2c = max(y1c, min(h, y2))
+                roi = img_gray_chk[y1c:y2c, x1c:x2c]
+                if not image_match(roi, REF_BORROW_CARD).find_match:
+                    log.info("Incorrect ui stopping card search")
+                    return
+            except Exception:
+                pass
             ctx.ctrl.swipe(x1=350, y1=400, x2=350, y2=1000, duration=600, name="scroll up list")
             time.sleep(0.5)
             img = ctx.ctrl.get_screen()
@@ -654,9 +773,6 @@ def script_cultivate_final_check(ctx: UmamusumeContext):
 
 
 def script_cultivate_event(ctx: UmamusumeContext):
-    if hasattr(ctx.cultivate_detail, 'event_cooldown_until') and time.time() < ctx.cultivate_detail.event_cooldown_until:
-        return
-
     # Sometimes the img fails to load. Retry
     retries = 5
     for attempt in range(retries):
@@ -673,11 +789,55 @@ def script_cultivate_event(ctx: UmamusumeContext):
                 raise TypeError("Failed to extract event_name_img from image")
 
     event_name = ocr_line(event_name_img, lang="en")
-    choice_index = get_event_choice(ctx, event_name)
+    force_choice_index = None
+    try:
+        if isinstance(event_name, str) and 'team at last' in event_name.lower():
+            log.info("Routing to Aoharu handler")
+            from module.umamusume.script.cultivate_task.event.scenario_event import aoharuhai_team_name_event
+            res = aoharuhai_team_name_event(ctx)
+            if isinstance(res, int) and res > 0:
+                force_choice_index = int(res)
+            else:
+                return
+    except Exception:
+        pass
+    choice_index = force_choice_index if force_choice_index is not None else get_event_choice(ctx, event_name)
     if not isinstance(choice_index, int) or choice_index < 1:
-        choice_index = 1
+        choice_index = 2
     if choice_index > 5:
-        choice_index = 1
+        choice_index = 2
+
+    try:
+        _, selectors = parse_cultivate_event(ctx, img)
+    except Exception:
+        selectors = []
+
+    if not isinstance(selectors, list):
+        selectors = []
+    if len(selectors) == 0 or len(selectors) > 5:
+        try:
+            time.sleep(0.25)
+            img_retry = ctx.ctrl.get_screen()
+            _, selectors2 = parse_cultivate_event(ctx, img_retry)
+            if isinstance(selectors2, list) and len(selectors2) > 0:
+                selectors = selectors2
+                log.info(len(selectors))
+        except Exception:
+            pass
+    if isinstance(selectors, list) and len(selectors) > 0:
+        idx = int(choice_index)
+        if idx < 1:
+            idx = 1
+        if idx > len(selectors):
+            idx = len(selectors)
+        target_pt = selectors[idx - 1]
+        try:
+            log.info(len(selectors))
+        except Exception:
+            pass
+        ctx.ctrl.click(int(target_pt[0]), int(target_pt[1]), f"Event option-{choice_index}")
+        ctx.cultivate_detail.event_cooldown_until = time.time() + 2.5
+        return
     try:
         tpl = Template(f"dialogue{choice_index}", UMAMUSUME_REF_TEMPLATE_PATH)
     except:
@@ -706,19 +866,6 @@ def script_cultivate_event(ctx: UmamusumeContext):
         except:
             pass
     if not clicked:
-        try:
-            tpl1 = Template("dialogue1", UMAMUSUME_REF_TEMPLATE_PATH)
-            res1 = image_match(roi_gray, tpl1)
-            if res1.find_match:
-                ctx.ctrl.click(res1.center_point[0] + x1, res1.center_point[1] + y1, "Event option-1")
-                clicked = True
-                ctx.cultivate_detail.event_cooldown_until = time.time() + 5
-                return
-        except:
-            pass
-    if not clicked:
-        ctx.ctrl.click(360, 800, "Event option-1")
-        ctx.cultivate_detail.event_cooldown_until = time.time() + 5
         return
 
 def script_aoharuhai_race(ctx: UmamusumeContext):
@@ -738,23 +885,13 @@ def script_aoharuhai_race(ctx: UmamusumeContext):
         return
     
     ctx.cultivate_detail.turn_info.aoharu_race_index = race_index
-    ctx.ctrl.click(360, 1080, "Start Youth Cup battle")
+    return
 
 def script_aoharuhai_race_final_start(ctx: UmamusumeContext):
     ctx.ctrl.click(360, 980, "Confirm final opponent")
 
 def script_aoharuhai_race_select_oponent(ctx: UmamusumeContext):
-    def select_opponent (race_index: int):
-        match race_index:
-            case 1:
-                ctx.ctrl.click(360, 290, "Select first opponent")
-            case 2:
-                ctx.ctrl.click(360, 560, "Select second opponent")
-            case 3:
-                ctx.ctrl.click(360, 830, "Select third opponent")
-        time.sleep(2)
-        ctx.ctrl.click(360, 1080, "Start battle")
-    select_opponent(ctx.task.detail.scenario_config.aoharu_config.get_opponent(ctx.cultivate_detail.turn_info.aoharu_race_index))
+    return
 
 def script_aoharuhai_race_confirm(ctx: UmamusumeContext):
     ctx.ctrl.click(520, 920, "Confirm battle")
@@ -798,6 +935,7 @@ def script_cultivate_goal_race(ctx: UmamusumeContext):
 
 
 def script_cultivate_race_list(ctx: UmamusumeContext):
+    log.info("➡️ Entered Race List menu (CULTIVATE_RACE_LIST)")
     time.sleep(1.0)
     if ctx.cultivate_detail.turn_info is None:
         log.warning("Turn information not initialized")
@@ -833,7 +971,7 @@ def script_cultivate_race_list(ctx: UmamusumeContext):
                 # If it's a URA race ID or 0 (unknown), try clicking the race button
                 if race_id in [2381, 2382, 2385, 2386, 2387] or race_id == 0:
                     log.info("🏆 Detected URA race operation - clicking race button directly")
-                    ctx.ctrl.click(510, 1082, "URA Race Button")
+                    ctx.ctrl.click(319, 1082, "URA Race Button")
                     time.sleep(1)
                     return
         if ctx.cultivate_detail.turn_info.turn_operation.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_RACE:
@@ -1401,6 +1539,24 @@ def script_not_found_ui(ctx: UmamusumeContext):
     if ctx.current_screen is not None:
         log.debug(f"🔍 NOT_FOUND_UI - Screen shape: {ctx.current_screen.shape}")
         
+
+        try:
+            import cv2
+            from bot.recog.image_matcher import image_match
+            from module.umamusume.asset.template import UI_CULTIVATE_RACE_LIST_2
+            img_gray_full = cv2.cvtColor(ctx.current_screen, cv2.COLOR_BGR2GRAY)
+            x1, y1, x2, y2 = 238, 525, 300, 588
+            h, w = img_gray_full.shape[:2]
+            x1c = max(0, min(w, x1)); x2c = max(0, min(w, x2))
+            y1c = max(0, min(h, y1)); y2c = max(0, min(h, y2))
+            roi = img_gray_full[y1c:y2c, x1c:x2c]
+            res = image_match(roi, UI_CULTIVATE_RACE_LIST_2)
+            if res.find_match:
+                script_cultivate_race_list(ctx)
+                return
+        except Exception as e:
+            log.debug(f"Race List ROI check failed: {e}")
+                
         # Try direct template matching for cultivate_result_1.png first
         try:
             import cv2

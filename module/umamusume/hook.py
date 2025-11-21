@@ -31,13 +31,31 @@ def double_click(ctx: UmamusumeContext, first: tuple[int, int, str], second: tup
         except Exception:
             pass
 
+def tt_next_sequence(ctx: UmamusumeContext):
+    try:
+        img_gray = ctx.ctrl.get_screen(to_gray=True)
+        res = image_match(img_gray, REF_NEXT)
+        if getattr(res, "find_match", False):
+            x1, y1 = res.matched_area[0]
+            x2, y2 = res.matched_area[1]
+            cx = int((x1 + x2) / 2)
+            cy = int((y1 + y2) / 2)
+            ctx.ctrl.click(cx, cy, "team trials next 1")
+        else:
+            ctx.ctrl.click(354, 1077, "team trials next 1")
+        time.sleep(0.7)
+        ctx.ctrl.click(508, 896, "team trials next 2")
+    except Exception:
+        pass
+
 RULES_BY_MODE = {
     "TASK_EXECUTE_MODE_TEAM_TRIALS": [
         {"type": "image", "ref": REF_HOME_GIFT, "action": lambda ctx: ctx.ctrl.click(522, 1228, "team trials resume")},
         {"type": "image", "ref": REF_TEAM_TRIALS, "action": lambda ctx: ctx.ctrl.click(106, 812, "team trials resume2")},
         {"type": "image", "ref": REF_TEAM_RACE, "action": lambda ctx: ctx.ctrl.click(351, 839, "team trials resume3")},
         {"type": "image", "ref": REF_SELECT_OPP, "action": lambda ctx: ctx.ctrl.click(73, 278, "team trials resume4")},
-        {"type": "image", "ref": REF_NEXT, "action": lambda ctx: double_click(ctx, (354, 1077, "team trials next 1"), (365, 1142, "team trials next 1"), key="next")},
+        {"type": "image", "ref": REF_TT_SEE_ALL, "action": lambda ctx: ctx.ctrl.click(359, 1200, "team trials resume5")},
+        {"type": "image", "ref": REF_NEXT, "action": tt_next_sequence},
         {"type": "title", "ref": "Items Selected", "action": lambda ctx: ctx.ctrl.click(610, 908, "tt6")},
         {"type": "title", "ref": "Daily Sale", "action": lambda ctx: ctx.ctrl.click(0, 0, "daily sale")},
         {"type": "image", "ref": REF_SEE_RESULTS, "action": lambda ctx: ctx.ctrl.click(514, 1208, "tt7")},
@@ -147,6 +165,73 @@ def after_hook(ctx: UmamusumeContext):
     except Exception:
         pass
     img = cv2.cvtColor(ctx.current_screen, cv2.COLOR_BGR2GRAY)
+    try:
+        from module.umamusume.define import ScenarioType
+        scv = getattr(ctx.task.detail.scenario, 'value', ctx.task.detail.scenario)
+        if scv == ScenarioType.SCENARIO_TYPE_AOHARUHAI.value:
+            if image_match(img[984:1025, 297:365], REF_AOHARU_RACE).find_match:
+                try:
+                    ti = getattr(getattr(ctx, 'cultivate_detail', None), 'turn_info', None)
+                    roi = img[343:389, 443:485]
+                    refs = [REF_ROUND_1, REF_ROUND_2, REF_ROUND_3, REF_ROUND_4]
+                    for i, tpl in enumerate(refs):
+                        try:
+                            if image_match(roi, tpl).find_match:
+                                if ti is not None:
+                                    ti.aoharu_race_index = i
+                                break
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+                ctx.ctrl.click(344, 1091, 'Aoharu race')
+                return
+            if image_match(img[1089:1113, 318:376], REF_SELECT_OPP2).find_match:
+                try:
+                    sc = getattr(ctx.task.detail, 'scenario_config', None)
+                    aoharu_cfg = getattr(sc, 'aoharu_config', None)
+                    ti = getattr(getattr(ctx, 'cultivate_detail', None), 'turn_info', None)
+                    idx = getattr(ti, 'aoharu_race_index', None)
+                    prs = getattr(aoharu_cfg, 'preliminary_round_selections', None)
+                    if isinstance(idx, int) and isinstance(prs, (list, tuple)) and 0 <= idx < len(prs):
+                        sel = prs[idx]
+                        if sel == 1:
+                            ctx.ctrl.click(339, 278, 'select opp')
+                            time.sleep(0.5)
+                        elif sel == 2:
+                            ctx.ctrl.click(335, 574, 'select opp')
+                            time.sleep(0.5)
+                        elif sel == 3:
+                            ctx.ctrl.click(339, 830, 'select opp')
+                            time.sleep(0.5)
+                except Exception:
+                    pass
+                ctx.ctrl.click(355, 1082, 'select opp2')
+                time.sleep(0.5)
+                ctx.ctrl.click(522, 930, 'select opp2 cont')
+                return
+            if image_match(img[1204:1219, 476:597], REF_ALL_RES).find_match:
+                ctx.ctrl.click(536, 1211, 'all res')
+                return
+            if image_match(img[43:72, 123:411], REF_RACE_END).find_match:
+                ctx.ctrl.click(351, 1112, 'race end')
+                return
+            if image_match(img[1204:1228, 319:399], REF_RACE_END2).find_match:
+                ctx.ctrl.click(350, 1199, 'race end2')
+                return
+            if image_match(img[1200:1222, 467:553], REF_RACE_END2).find_match:
+                ctx.ctrl.click(508, 1196, 'race end2 b')
+                return
+            if image_match(img[7:31, 24:180], REF_TEAM_SHOWDOWN).find_match:
+                ctx.ctrl.click(354, 961, 'team showdown')
+                time.sleep(1)
+                ctx.ctrl.click(522, 930, 'select opp2 cont')
+                return
+            if image_match(img[1097:1124, 327:393], REF_NEXT).find_match:
+                ctx.ctrl.click(360, 1112, 'next')
+                return
+    except Exception:
+        pass
     if apply_rules(ctx, img):
         return
     if image_match(img, BTN_SKIP).find_match:

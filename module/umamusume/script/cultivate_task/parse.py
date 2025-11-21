@@ -494,10 +494,18 @@ def parse_training_support_card(ctx: UmamusumeContext, img, train_type: Training
         
 def parse_train_type(ctx: UmamusumeContext, img) -> TrainingType:
     try:
-        train_label = cv2.cvtColor(img[210:275, 0:210], cv2.COLOR_RGB2GRAY)
-    except Exception as e:
-        log.error(f"parse_train_type: Failed to extract train_label")
-        raise TypeError("Failed to extract train_label from image")
+        if img is None or getattr(img, 'size', 0) == 0:
+            return TrainingType.TRAINING_TYPE_UNKNOWN
+        h, w = img.shape[:2]
+        y1, y2, x1, x2 = 210, 275, 0, 210
+        y1 = max(0, min(h, y1)); y2 = max(y1, min(h, y2))
+        x1 = max(0, min(w, x1)); x2 = max(x1, min(w, x2))
+        roi = img[y1:y2, x1:x2]
+        if roi is None or getattr(roi, 'size', 0) == 0:
+            return TrainingType.TRAINING_TYPE_UNKNOWN
+        train_label = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    except Exception:
+        return TrainingType.TRAINING_TYPE_UNKNOWN
     train_type = TrainingType.TRAINING_TYPE_UNKNOWN
     if image_match(train_label, REF_TRAINING_TYPE_SPEED).find_match:
         train_type = TrainingType.TRAINING_TYPE_SPEED
@@ -617,6 +625,8 @@ def parse_cultivate_event(ctx: UmamusumeContext, img) -> tuple[str, list[int]]:
         raise TypeError("Failed to extract event_name_img from image")
 
     event_name = ocr_line(event_name_img)
+    if not isinstance(event_name, str) or event_name.strip() == "":
+        return "", []
     event_selector_list = []
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
@@ -650,27 +660,41 @@ def parse_cultivate_event(ctx: UmamusumeContext, img) -> tuple[str, list[int]]:
         except:
             log.warning("Could not load dialogue templates")
         
-        # Try matching each dialogue template
+        x1, y1, x2, y2 = 24, 316, 696, 936
+        h, w = img_gray.shape[:2]
+        x1 = max(0, min(w, x1)); x2 = max(x1, min(w, x2)); y1 = max(0, min(h, y1)); y2 = max(y1, min(h, y2))
+        search_img = img_gray[y1:y2, x1:x2].copy()
+        
+        def append_unique_point(points, pt, y_thresh=28, x_thresh=100):
+            for qx, qy in points:
+                if abs(qy - pt[1]) <= y_thresh and abs(qx - pt[0]) <= x_thresh:
+                    return
+            points.append(pt)
+        
         for template in dialogue_templates:
             try:
-                img_temp = img_gray.copy()
                 while True:
-                    match_result = image_match(img_temp, template)
+                    match_result = image_match(search_img, template)
                     if match_result.find_match:
-                        event_selector_list.append(match_result.center_point)
-                        img_temp[match_result.matched_area[0][1]:match_result.matched_area[1][1],
-                                 match_result.matched_area[0][0]:match_result.matched_area[1][0]] = 0
+                        abs_pt = (match_result.center_point[0] + x1, match_result.center_point[1] + y1)
+                        append_unique_point(event_selector_list, abs_pt)
+                        y0, y1m = match_result.matched_area[0][1], match_result.matched_area[1][1]
+                        x0, x1m = match_result.matched_area[0][0], match_result.matched_area[1][0]
+                        search_img[y0:y1m, x0:x1m] = 0
                     else:
                         break
-            except:
+            except Exception:
                 continue
         
-        if len(event_selector_list) > 0:
-            log.info(f"Found {len(event_selector_list)} dialogue options using individual templates")
-        else:
-            log.warning("Individual dialogue templates also failed, using fallback position")
-            # Last resort fallback
-            event_selector_list = [(360, 800)]
+        if len(event_selector_list) > 1:
+            deduped = []
+            for pt in sorted(event_selector_list, key=lambda p: p[1]):
+                if not deduped or (abs(deduped[-1][1] - pt[1]) > 20 or abs(deduped[-1][0] - pt[0]) > 80):
+                    deduped.append(pt)
+            event_selector_list = deduped[:5]
+        
+        if len(event_selector_list) == 0:
+            return event_name, []
     
     event_selector_list.sort(key=lambda x: x[1])
     return event_name, event_selector_list

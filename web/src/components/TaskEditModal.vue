@@ -57,8 +57,19 @@
                     </select>
                   </div>
                 </div>
-              </div>
-              <div class="row" v-if="selectedScenario === 1">
+                </div>
+                <div class="row">
+                <div class="col-3">
+                <div class="form-group">
+                <label class="d-block mb-1">Use Last Parents</label>
+                <div class="token-toggle" role="group" aria-label="Use Last Parents">
+                <button type="button" class="token" :class="{ active: useLastParents }" @click="useLastParents = true">Yes</button>
+                <button type="button" class="token" :class="{ active: !useLastParents }" @click="useLastParents = false">No</button>
+                </div>
+                </div>
+                </div>
+                </div>
+                <div class="row" v-if="selectedScenario === 1">
                 <div class="col-4">
                   <div class="form-group">
                     <span class="btn auto-btn" style="width:100%" v-on:click="openUraConfigModal">URA Configuration</span>
@@ -208,14 +219,13 @@
                   </div>
                 </div>
               </div>
-              <div class="form-group">
-                <div>Target Attributes (If unsure about specific values, manually train once and input the final
-                  stats)</div>
-              </div>
-              <div class="form-group Cure-asap">
+                            <div class="form-group Cure-asap">
                 <label for="cure-asap-input">Cure These Conditions As Soon As Possible (Separate by comma)</label>
                 <textarea v-model="cureAsapConditions" class="form-control" id="cure-asap-input"
                   spellcheck="false"></textarea>
+              </div>
+              <div class="form-group">
+                <div>Target Attributes (Try adjust your deck/slightly tweaking training weight [0.1 to -0.1] instead of adjusting this)</div>
               </div>
               <div class="row">
                 <div class="col">
@@ -377,6 +387,14 @@
                     <div class="form-group mb-1"><small>{{ ['Speed','Stamina','Power','Guts','Wit'][i] }}</small></div>
                     <input type="number" v-model="extraWeightSummer[i]" class="form-control"
                       @input="onExtraWeightInput(extraWeightSummer, i)" id="speed-value-input">
+                  </div>
+                </div>
+                <div v-if="selectedScenario === 2" style="margin: 12px 0 10px; color: var(--accent); border-top: 1px solid var(--accent); padding-top: 8px;">Spirit Explosion Score</div>
+                <div v-if="selectedScenario === 2" class="row">
+                  <div v-for="(v, i) in extraSpiritExplosion" :key="i" class="col-md-2 col-6">
+                    <div class="form-group mb-1"><small>{{ ['Speed','Stamina','Power','Guts','Wit'][i] }}</small></div>
+                    <input type="number" v-model="extraSpiritExplosion[i]" class="form-control"
+                      @input="onExtraWeightInput(extraSpiritExplosion, i)" id="speed-value-input">
                   </div>
                 </div>
 
@@ -1260,11 +1278,11 @@ export default {
       umamusumeRaceList_2: [],
       umamusumeRaceList_3: [],
       cultivatePresets: [],
-      expectSpeedValue: 650,
-      expectStaminaValue: 600,
-      expectPowerValue: 650,
-      expectWillValue: 300,
-      expectIntelligenceValue: 300,
+      expectSpeedValue: 9999,
+      expectStaminaValue: 9999,
+      expectPowerValue: 9999,
+      expectWillValue: 9999,
+      expectIntelligenceValue: 9999,
 
       supportCardLevel: 50,
 
@@ -1274,7 +1292,7 @@ export default {
         skill: "",
         skill_priority_list: [],
         skill_blacklist: "",
-        expect_attribute: [650, 800, 650, 400, 400],
+        expect_attribute: [9999, 9999, 9999, 9999, 9999],
         follow_support_card: { id: 10001, name: 'Beyond This Shining Moment', desc: 'Silence Suzuka' },
         follow_support_card_level: 50,
         clock_use_limit: 99,
@@ -1312,6 +1330,7 @@ export default {
       learnSkillThreshold: 9999,
       cureAsapConditions: 'Migraine,Night Owl,Skin Outbreak,Slacker,Slow Metabolism,(Practice poor isn\'t worth a turn to cure)',
       recoverTP: 0,
+      useLastParents: false,
       presetNameEdit: "",
       presetAction: null,
       overwritePresetName: "",
@@ -1321,6 +1340,7 @@ export default {
       extraWeight2: [0, 0, 0, 0, 0],
       extraWeight3: [0, 0, 0, 0, 0],
       extraWeightSummer: [0, 0, 0, 0, 0],
+      extraSpiritExplosion: [0.16, 0.16, 0.16, 0.06, 0.11],
 
       // Motivation thresholds for trip decisions
       motivationThresholdYear1: 3,
@@ -1377,12 +1397,11 @@ export default {
       scoreValueClassic: [0.11, 0.10, 0.09, 0.09],
       scoreValueSenior: [0.11, 0.10, 0.12, 0.09],
       scoreValueSeniorAfterSummer: [0.03, 0.05, 0.15, 0.09],
-      // Special Training weights (Aoharu only)
-      specialJunior: 0.09,
-      specialClassic: 0.09,
-      specialSenior: 0.09,
-      specialSeniorAfterSummer: 0.09
-    }
+      specialJunior: 0.095,
+      specialClassic: 0.095,
+      specialSenior: 0.095,
+      specialSeniorAfterSummer: 0.095,
+          }
   },
   computed: {
     filteredRaces_1() {
@@ -1623,12 +1642,12 @@ export default {
     },
     scoreValueJunior(val) {
       if (this.selectedScenario === 2 && Array.isArray(val) && val.length < 5) {
-        this.scoreValueJunior = [...val, ...Array(5 - val.length).fill(0.09)]
+        this.scoreValueJunior = [...val, ...Array(5 - val.length).fill(0.15)]
       }
     },
     scoreValueClassic(val) {
       if (this.selectedScenario === 2 && Array.isArray(val) && val.length < 5) {
-        this.scoreValueClassic = [...val, ...Array(5 - val.length).fill(0.09)]
+        this.scoreValueClassic = [...val, ...Array(5 - val.length).fill(0.12)]
       }
     },
     scoreValueSenior(val) {
@@ -1638,7 +1657,7 @@ export default {
     },
     scoreValueSeniorAfterSummer(val) {
       if (this.selectedScenario === 2 && Array.isArray(val) && val.length < 5) {
-        this.scoreValueSeniorAfterSummer = [...val, ...Array(5 - val.length).fill(0.09)]
+        this.scoreValueSeniorAfterSummer = [...val, ...Array(5 - val.length).fill(0.07)]
       }
     }
   },
@@ -1702,14 +1721,14 @@ export default {
       }
     },
         normalizeScoreArrays(targetLen) {
-      const ensureLen = (arr) => {
+      const ensureLen = (arr, special) => {
         if (arr.length > targetLen) arr.splice(targetLen)
-        while (arr.length < targetLen) arr.push(0.09)
+        while (arr.length < targetLen) arr.push(targetLen === 5 ? special : 0.09)
       }
-      ensureLen(this.scoreValueJunior)
-      ensureLen(this.scoreValueClassic)
-      ensureLen(this.scoreValueSenior)
-      ensureLen(this.scoreValueSeniorAfterSummer)
+      ensureLen(this.scoreValueJunior, 0.15)
+      ensureLen(this.scoreValueClassic, 0.12)
+      ensureLen(this.scoreValueSenior, 0.09)
+      ensureLen(this.scoreValueSeniorAfterSummer, 0.07)
     },
     togglePresetMenu() {
       this.showPresetMenu = !this.showPresetMenu;
@@ -2041,13 +2060,15 @@ export default {
           "allow_recover_tp": this.recoverTP,
           "rest_treshold": this.restTreshold,
           "compensate_failure": this.compensateFailure,
+          "use_last_parents": this.useLastParents,
           "learn_skill_only_user_provided": this.learnSkillOnlyUserProvided,
           "extra_weight": [this.extraWeight1, this.extraWeight2, this.extraWeight3, this.extraWeightSummer],
+          "spirit_explosion": this.extraSpiritExplosion.map(v => Math.max(-1, Math.min(1, v))),
           "score_value": [
-            (this.selectedScenario === 2 ? [this.scoreValueJunior[0], this.scoreValueJunior[1], this.scoreValueJunior[2], this.scoreValueJunior[3], this.specialJunior] : [this.scoreValueJunior[0], this.scoreValueJunior[1], this.scoreValueJunior[2], this.scoreValueJunior[3]]),
-            (this.selectedScenario === 2 ? [this.scoreValueClassic[0], this.scoreValueClassic[1], this.scoreValueClassic[2], this.scoreValueClassic[3], this.specialClassic] : [this.scoreValueClassic[0], this.scoreValueClassic[1], this.scoreValueClassic[2], this.scoreValueClassic[3]]),
-            (this.selectedScenario === 2 ? [this.scoreValueSenior[0], this.scoreValueSenior[1], this.scoreValueSenior[2], this.scoreValueSenior[3], this.specialSenior] : [this.scoreValueSenior[0], this.scoreValueSenior[1], this.scoreValueSenior[2], this.scoreValueSenior[3]]),
-            (this.selectedScenario === 2 ? [this.scoreValueSeniorAfterSummer[0], this.scoreValueSeniorAfterSummer[1], this.scoreValueSeniorAfterSummer[2], this.scoreValueSeniorAfterSummer[3], this.specialSeniorAfterSummer] : [this.scoreValueSeniorAfterSummer[0], this.scoreValueSeniorAfterSummer[1], this.scoreValueSeniorAfterSummer[2], this.scoreValueSeniorAfterSummer[3]])
+            (this.selectedScenario === 2 ? this.scoreValueJunior.slice(0,5) : this.scoreValueJunior.slice(0,4)),
+            (this.selectedScenario === 2 ? this.scoreValueClassic.slice(0,5) : this.scoreValueClassic.slice(0,4)),
+            (this.selectedScenario === 2 ? this.scoreValueSenior.slice(0,5) : this.scoreValueSenior.slice(0,4)),
+            (this.selectedScenario === 2 ? this.scoreValueSeniorAfterSummer.slice(0,5) : this.scoreValueSeniorAfterSummer.slice(0,4))
           ],
           // Motivation thresholds for trip decisions
           "motivation_threshold_year1": this.motivationThresholdYear1,
@@ -2098,6 +2119,7 @@ export default {
         this.clockUseLimit = this.presetsUse.clock_use_limit,
         this.restTreshold = (this.presetsUse.rest_treshold || this.presetsUse.fast_path_energy_limit || 48),
       this.compensateFailure = (this.presetsUse.compensate_failure !== false)
+      this.useLastParents = (this.presetsUse.use_last_parents === true)
         this.learnSkillThreshold = this.presetsUse.learn_skill_threshold,
         this.selectedRaceTactic1 = this.presetsUse.race_tactic_1,
         this.selectedRaceTactic2 = this.presetsUse.race_tactic_2,
@@ -2121,9 +2143,11 @@ export default {
         this.scoreValueSenior = [...this.presetsUse.scoreValue[2]]
         this.scoreValueSeniorAfterSummer = [...this.presetsUse.scoreValue[3]]
         const targetLen = (this.selectedScenario === 2) ? 5 : 4;
-        [this.scoreValueJunior, this.scoreValueClassic, this.scoreValueSenior, this.scoreValueSeniorAfterSummer].forEach(arr => {
+        const specials = [0.15, 0.12, 0.09, 0.07]
+        const arrs = [this.scoreValueJunior, this.scoreValueClassic, this.scoreValueSenior, this.scoreValueSeniorAfterSummer]
+        arrs.forEach((arr, i) => {
           if (arr.length > targetLen) arr.splice(targetLen)
-          while (arr.length < targetLen) arr.push(0.09)
+          while (arr.length < targetLen) arr.push(targetLen === 5 ? specials[i] : 0.09)
         })
       }
 
@@ -2132,12 +2156,14 @@ export default {
         this.extraWeight2 = this.presetsUse.extraWeight[1].map(v => Math.max(-1, Math.min(1, v)));
         this.extraWeight3 = this.presetsUse.extraWeight[2].map(v => Math.max(-1, Math.min(1, v)));
         this.extraWeightSummer = (this.presetsUse.extraWeight.length >= 4 ? this.presetsUse.extraWeight[3] : [0, 0, 0, 0, 0]).map(v => Math.max(-1, Math.min(1, v)));
+        this.extraSpiritExplosion = (this.presetsUse.spirit_explosion || this.presetsUse.spiritExplosion || [0.16, 0.16, 0.16, 0.06, 0.11]).map(v => Math.max(-1, Math.min(1, v)));
       }
       else {
         this.extraWeight1 = [0, 0, 0, 0, 0]
         this.extraWeight2 = [0, 0, 0, 0, 0]
         this.extraWeight3 = [0, 0, 0, 0, 0]
         this.extraWeightSummer = [0, 0, 0, 0, 0]
+        this.extraSpiritExplosion = [0.16, 0.16, 0.16, 0.06, 0.11]
       }
 
       // Load new skill system data if available
@@ -2278,6 +2304,7 @@ export default {
         name: this.presetNameEdit,
         event_overrides: this.buildEventChoices(),
         compensate_failure: this.compensateFailure,
+        use_last_parents: this.useLastParents,
         scenario: this.selectedScenario,
         race_list: this.extraRace,
         skill_priority_list: skill_priority_list,

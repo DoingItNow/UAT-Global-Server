@@ -80,6 +80,11 @@ class U2AndroidController(AndroidController):
         self.recent_click_buckets = []
         self.fallback_block_until = 0.0
         self.trigger_decision_reset = False
+        try:
+            from bot.base.runtime_state import load_persisted
+            load_persisted()
+        except Exception:
+            pass
 
     def in_fallback_block(self, name):
         if isinstance(name, str) and name == "Default fallback click":
@@ -105,10 +110,22 @@ class U2AndroidController(AndroidController):
         return f"{int(x/50)}:{int(y/50)}"
 
     def update_repetitive_click(self, click_key):
+        try:
+            from bot.base.runtime_state import update_repetitive, get_repetitive_threshold
+            repetitive_threshold = int(get_repetitive_threshold())
+        except Exception:
+            repetitive_threshold = 11
+            update_repetitive = None
+
         if self.repetitive_click_name is None:
             self.repetitive_click_name = click_key
             self.repetitive_click_count = 1
             self.repetitive_other_clicks = 0
+            try:
+                if update_repetitive:
+                    update_repetitive(self.repetitive_click_count, self.repetitive_other_clicks)
+            except Exception:
+                pass
             return False
         if click_key == self.repetitive_click_name:
             self.repetitive_click_count += 1
@@ -118,13 +135,24 @@ class U2AndroidController(AndroidController):
                 self.repetitive_click_name = click_key
                 self.repetitive_click_count = 1
                 self.repetitive_other_clicks = 0
-        if self.repetitive_click_name == click_key and self.repetitive_click_count >= 6:
+        try:
+            if update_repetitive:
+                update_repetitive(self.repetitive_click_count, self.repetitive_other_clicks)
+        except Exception:
+            pass
+
+        if self.repetitive_click_name == click_key and self.repetitive_click_count >= repetitive_threshold:
             try:
                 self.recover_home_and_reopen()
             finally:
                 self.repetitive_click_name = None
                 self.repetitive_click_count = 0
                 self.repetitive_other_clicks = 0
+                try:
+                    if update_repetitive:
+                        update_repetitive(0, 0)
+                except Exception:
+                    pass
             time.sleep(self.config.delay)
             return True
         return False
@@ -173,10 +201,25 @@ class U2AndroidController(AndroidController):
 
     # get_screen 获取图片
     def get_screen(self, to_gray=False):
-        cur_screen = self.u2client.screenshot(format='opencv')
-        if to_gray:
-            return cv2.cvtColor(cur_screen, cv2.COLOR_BGR2GRAY)
-        return cur_screen
+        try:
+            cur_screen = self.u2client.screenshot(format='opencv')
+        except Exception:
+            time.sleep(0.05)
+            try:
+                cur_screen = self.u2client.screenshot(format='opencv')
+            except Exception:
+                return None
+        try:
+            if cur_screen is None or getattr(cur_screen, 'size', 0) == 0:
+                return None
+            h, w = cur_screen.shape[:2]
+            if h < 100 or w < 100:
+                return None
+            if to_gray:
+                return cv2.cvtColor(cur_screen, cv2.COLOR_BGR2GRAY)
+            return cur_screen
+        except Exception:
+            return None
 
     # ===== ctrl =====
     def click_by_point(self, point: ClickPoint, random_offset=True, hold_duration=0):
