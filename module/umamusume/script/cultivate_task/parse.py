@@ -618,12 +618,7 @@ def find_support_card(ctx: UmamusumeContext, img):
 
 # 111 237 480 283
 def parse_cultivate_event(ctx: UmamusumeContext, img) -> tuple[str, list[int]]:
-    try:
-        event_name_img = img[237:283, 111:480]
-    except Exception as e:
-        log.error(f"event_name_img: Failed to extract event_name_img")
-        raise TypeError("Failed to extract event_name_img from image")
-
+    event_name_img = img[237:283, 111:480]
     event_name = ocr_line(event_name_img)
     if not isinstance(event_name, str) or event_name.strip() == "":
         return "", []
