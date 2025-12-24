@@ -180,10 +180,15 @@ class CultivateContextDetail:
     allow_recover_tp: bool
     parse_factor_done: bool
     extra_weight: list
+    spirit_explosion: list
     motivation_threshold_year1: int
     motivation_threshold_year2: int
     motivation_threshold_year3: int
     prioritize_recreation: bool
+    pal_name: str
+    pal_thresholds: list
+    pal_friendship_score: list[float]
+    pal_card_multiplier: float
 
     def __init__(self):
         self.expect_attribute = None
@@ -202,10 +207,15 @@ class CultivateContextDetail:
         self.allow_recover_tp = False
         self.parse_factor_done = False
         self.extra_weight = []
+        self.spirit_explosion = [0.16, 0.16, 0.16, 0.06, 0.11]
         self.motivation_threshold_year1 = 3  # Default values
         self.motivation_threshold_year2 = 4
         self.motivation_threshold_year3 = 4
         self.prioritize_recreation = False
+        self.pal_name = ""
+        self.pal_thresholds = []
+        self.pal_friendship_score = [0.08, 0.057, 0.018]
+        self.pal_card_multiplier = 0.1
 
     def reset_skill_learn(self):
         self.learn_skill_done = False

@@ -16,6 +16,55 @@ from module.umamusume.asset.template import *
 log = logger.get_logger(__name__)
 
 
+def should_use_pal_outing_simple(ctx: UmamusumeContext):
+    if not getattr(ctx.cultivate_detail, 'prioritize_recreation', False):
+        return False
+    if ctx.cultivate_detail.pal_event_stage <= 0:
+        return False
+    
+    img = ctx.current_screen
+    if img is None:
+        return False
+    
+    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    from module.umamusume.asset.template import UI_RECREATION_FRIEND_NOTIFICATION
+    result = image_match(img_gray, UI_RECREATION_FRIEND_NOTIFICATION)
+    if not result.find_match:
+        return False
+    
+    pal_thresholds = ctx.cultivate_detail.pal_thresholds
+    if not pal_thresholds:
+        return False
+    
+    stage = ctx.cultivate_detail.pal_event_stage
+    if stage > len(pal_thresholds):
+        return False
+    
+    thresholds = pal_thresholds[stage - 1]
+    mood_threshold = thresholds[0]
+    energy_threshold = thresholds[1]
+    
+    from bot.conn.fetch import fetch_state
+    state = fetch_state()
+    current_energy = state.get("energy", 0)
+    current_mood_raw = state.get("mood")
+    current_mood = current_mood_raw if current_mood_raw is not None else 4
+    
+    mood_below = current_mood <= mood_threshold
+    energy_below = current_energy <= energy_threshold
+    
+    log.info(f"PAL outing check - Stage {stage}:")
+    log.info(f"Mood: {current_mood} vs {mood_threshold} - {'<=' if mood_below else '>'}")
+    log.info(f"Energy: {current_energy} vs {energy_threshold} - {'<=' if energy_below else '>'}")
+    
+    if mood_below and energy_below:
+        log.info("Both conditions met - using pal outing instead of rest")
+        return True
+    else:
+        log.info("Conditions not met - using rest")
+        return False
+
+
 def script_cultivate_main_menu(ctx: UmamusumeContext):
     img = ctx.current_screen
     current_date = parse_date(img, ctx)
@@ -28,12 +77,16 @@ def script_cultivate_main_menu(ctx: UmamusumeContext):
             ctx.cultivate_detail.turn_info_history.append(ctx.cultivate_detail.turn_info)
         ctx.cultivate_detail.turn_info = TurnInfo()
         ctx.cultivate_detail.turn_info.date = current_date
+        
+        if current_date == 2:
+            log.info("new run detected resetting manual purchase state")
+            ctx.cultivate_detail.manual_purchase_completed = False
+            if hasattr(ctx.cultivate_detail, 'manual_purchase_initiated'):
+                delattr(ctx.cultivate_detail, 'manual_purchase_initiated')
 
-    # Parse main interface
     if not ctx.cultivate_detail.turn_info.parse_main_menu_finish:
         parse_cultivate_main_menu(ctx, img)
         
-        # PRIORITY 1: Check for extra races first (highest priority)
         from module.umamusume.asset.race_data import get_races_for_period
         available_races = get_races_for_period(ctx.cultivate_detail.turn_info.date)
         has_extra_race = len([race_id for race_id in ctx.cultivate_detail.extra_race_list 
@@ -55,28 +108,83 @@ def script_cultivate_main_menu(ctx: UmamusumeContext):
             ctx.cultivate_detail.turn_info.parse_main_menu_finish = True
             return
         
-        # Check for recreation friend notification if prioritize_recreation is enabled
         if ctx.cultivate_detail.prioritize_recreation:
             img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             from module.umamusume.asset.template import UI_RECREATION_FRIEND_NOTIFICATION
             result = image_match(img_gray, UI_RECREATION_FRIEND_NOTIFICATION)
             log.info(f"🔍 Recreation friend notification detection: {result.find_match}")
             
+            need_detection = False
             if result.find_match:
-                log.info("🏖️ Recreation friend notification detected - prioritizing trip")
-                # Set trip operation to prioritize recreation
-                ctx.cultivate_detail.turn_info.turn_operation = TurnOperation()
-                ctx.cultivate_detail.turn_info.turn_operation.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_TRIP
+                last_detection_date = getattr(ctx.cultivate_detail, 'pal_last_detection_date', -1)
+                if last_detection_date != current_date:
+                    need_detection = True
+                    log.info(f"Notification present - need detection (last: {last_detection_date}, now: {current_date})")
+                else:
+                    log.info(f"Stage {ctx.cultivate_detail.pal_event_stage} already detected for date {current_date}")
+            else:
+                if ctx.cultivate_detail.pal_event_stage > 0:
+                    log.info("Notification absent - resetting stage to 0")
+                    ctx.cultivate_detail.pal_event_stage = 0
+                    if hasattr(ctx.cultivate_detail, 'pal_last_detection_date'):
+                        delattr(ctx.cultivate_detail, 'pal_last_detection_date')
+            
+            if need_detection:
+                log.info("🔍 Opening recreation menu to detect stage")
+                ctx.ctrl.click_by_point(CULTIVATE_TRIP)
+                time.sleep(0.5)
+                img = ctx.ctrl.get_screen()
                 
-            ctx.cultivate_detail.turn_info.parse_main_menu_finish = True
+                pal_name = ctx.cultivate_detail.pal_name
+                pal_thresholds = ctx.cultivate_detail.pal_thresholds
+                
+                if pal_name and pal_thresholds:
+                    pal_data = pal_thresholds
+                    num_stages = len(pal_data)
+                    
+                    coords_to_check = []
+                    if num_stages == 3:
+                        coords_to_check = [(554, 474), (605, 474)]
+                    elif num_stages == 4:
+                        coords_to_check = [(503, 474), (554, 474), (605, 474)]
+                    elif num_stages == 5:
+                        coords_to_check = [(452, 474), (503, 474), (554, 474), (605, 474)]
+                    
+                    matching_pixels = 0
+                    for x, y in coords_to_check:
+                        pixel_color = img[y, x]
+                        b, g, r = pixel_color[0], pixel_color[1], pixel_color[2]
+                        is_match = abs(b - 223) <= 5 and abs(g - 227) <= 5 and abs(r - 231) <= 5
+                        if is_match:
+                            matching_pixels += 1
+                    
+                    calculated_stage = len(coords_to_check) - matching_pixels + 1
+                    ctx.cultivate_detail.pal_event_stage = calculated_stage
+                    ctx.cultivate_detail.pal_last_detection_date = current_date
+                    
+                    log.info(f"STAGE DETECTED: {ctx.cultivate_detail.pal_event_stage} ({matching_pixels} filled / {len(coords_to_check)} total)")
+                    
+                    if ctx.cultivate_detail.pal_event_stage <= len(pal_data):
+                        thresholds = pal_data[ctx.cultivate_detail.pal_event_stage - 1]
+                        mood, energy, score = thresholds
+                        log.info(f"Stage {ctx.cultivate_detail.pal_event_stage} thresholds - Mood: {mood}, Energy: {energy}, Score: {score}")
+                else:
+                    log.error("boi what the hell")
 
-    # Check if there are extra races available for current time period (for other logic)
+                ctx.ctrl.click(5, 5)
+                time.sleep(0.3)
+                ctx.cultivate_detail.turn_info.parse_main_menu_finish = False
+                return
+                
+        ctx.cultivate_detail.turn_info.parse_main_menu_finish = True
+
     from module.umamusume.asset.race_data import get_races_for_period
     available_races = get_races_for_period(ctx.cultivate_detail.turn_info.date)
     has_extra_race = len([race_id for race_id in ctx.cultivate_detail.extra_race_list 
                          if race_id in available_races]) != 0
 
-    # 意外情况处理
+    turn_operation = ctx.cultivate_detail.turn_info.turn_operation
+
     if (not ctx.cultivate_detail.cultivate_finish and
         not ctx.cultivate_detail.turn_info.turn_learn_skill_done and
         ctx.cultivate_detail.learn_skill_done):
@@ -91,7 +199,6 @@ def script_cultivate_main_menu(ctx: UmamusumeContext):
     log.debug(f"🔍 Manual purchase enabled: {ctx.task.detail.manual_purchase_at_end}, Cultivate finish: {ctx.cultivate_detail.cultivate_finish}")
     log.debug(f"🔍 Skip auto skill learning: {skip_auto_skill_learning}")
     
-    # Automatic skill learning during normal cultivation (not at cultivate finish)
     if (ctx.cultivate_detail.turn_info.uma_attribute.skill_point > ctx.cultivate_detail.learn_skill_threshold
             and not ctx.cultivate_detail.turn_info.turn_learn_skill_done
             and not skip_auto_skill_learning):
@@ -104,29 +211,38 @@ def script_cultivate_main_menu(ctx: UmamusumeContext):
         if not ctx.cultivate_detail.cultivate_finish:
             ctx.cultivate_detail.reset_skill_learn()
 
-    # Check for trip operation first (prioritize recreation)
-    turn_operation = ctx.cultivate_detail.turn_info.turn_operation
+
+    if turn_operation is not None and turn_operation.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_REST:
+        if should_use_pal_outing_simple(ctx):
+            ctx.ctrl.click_by_point(CULTIVATE_TRIP)
+        else:
+            ctx.ctrl.click_by_point(CULTIVATE_REST)
+        return
+    
     if turn_operation is not None and turn_operation.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_TRIP:
-        log.info("🏖️ Executing prioritized trip operation")
+        # AI has already validated PAL availability, execute directly
+        log.info("Executing trip operation")
         if 36 < ctx.cultivate_detail.turn_info.date <= 40 or 60 < ctx.cultivate_detail.turn_info.date <= 64:
             ctx.ctrl.click(68, 991, "Summer Camp")
         else:
             ctx.ctrl.click_by_point(CULTIVATE_TRIP)
         return
 
-    if turn_operation is not None and turn_operation.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_REST:
-        ctx.ctrl.click_by_point(CULTIVATE_REST)
-        return
-
     if not ctx.cultivate_detail.turn_info.parse_train_info_finish:
         from bot.conn.fetch import read_energy
         energy = read_energy()
+        if energy == 0:
+            time.sleep(0.37)
+            energy = read_energy()
         limit = int(getattr(ctx.cultivate_detail, 'rest_treshold', getattr(ctx.cultivate_detail, 'fast_path_energy_limit', 48)))
         if has_extra_race:
             ctx.cultivate_detail.turn_info.parse_train_info_finish = True
             return
         if energy <= limit:
-            ctx.ctrl.click_by_point(CULTIVATE_REST)
+            if should_use_pal_outing_simple(ctx):
+                ctx.ctrl.click_by_point(CULTIVATE_TRIP)
+            else:
+                ctx.ctrl.click_by_point(CULTIVATE_REST)
             return
         else:
             ctx.ctrl.click_by_point(TO_TRAINING_SELECT)
@@ -137,12 +253,23 @@ def script_cultivate_main_menu(ctx: UmamusumeContext):
         if turn_operation.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_TRAINING:
             ctx.ctrl.click_by_point(TO_TRAINING_SELECT)
         elif turn_operation.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_REST:
-            ctx.ctrl.click_by_point(CULTIVATE_REST)
+            if should_use_pal_outing_simple(ctx):
+                ctx.ctrl.click_by_point(CULTIVATE_TRIP)
+            else:
+                ctx.ctrl.click_by_point(CULTIVATE_REST)
         elif turn_operation.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_MEDIC:
             if 36 < ctx.cultivate_detail.turn_info.date <= 40 or 60 < ctx.cultivate_detail.turn_info.date <= 64:
                 ctx.ctrl.click_by_point(CULTIVATE_MEDIC_SUMMER)
             else:
                 ctx.ctrl.click_by_point(CULTIVATE_MEDIC)
+            time.sleep(0.5)
+            img = ctx.ctrl.get_screen()
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            is_summer = (36 < ctx.cultivate_detail.turn_info.date <= 40 or 60 < ctx.cultivate_detail.turn_info.date <= 64)
+            check_point = img_rgb[1130, 200] if is_summer else img_rgb[1125, 105]
+            if not (check_point[0] > 200 and check_point[1] > 200 and check_point[2] > 200):
+                log.info("not sick resetting decision")
+                ctx.ctrl.trigger_decision_reset = True
         elif turn_operation.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_TRIP:
             if 36 < ctx.cultivate_detail.turn_info.date <= 40 or 60 < ctx.cultivate_detail.turn_info.date <= 64:
                 ctx.ctrl.click(68, 991, "Summer Camp")
@@ -248,11 +375,17 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
 
     from bot.conn.fetch import read_energy
     energy = read_energy()
+    if energy == 0:
+        time.sleep(0.37)
+        energy = read_energy()
     limit = int(getattr(ctx.cultivate_detail, 'rest_treshold', getattr(ctx.cultivate_detail, 'fast_path_energy_limit', 48)))
     if energy <= limit:
-        log.info(f"rest threshold: energy={energy}, threshold={limit} - prioritizing rest")
         op = TurnOperation()
-        op.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_REST
+        if should_use_pal_outing_simple(ctx):
+            op.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_TRIP
+        else:
+            log.info(f"rest threshold: energy={energy}, threshold={limit} - prioritizing rest")
+            op.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_REST
         ctx.cultivate_detail.turn_info.turn_operation = op
         ctx.ctrl.click_by_point(RETURN_TO_CULTIVATE_MAIN_MENU)
         return
@@ -372,8 +505,10 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             [0.11, 0.10, 0.01, 0.09],
             [0.11, 0.10, 0.09, 0.09],
             [0.11, 0.10, 0.12, 0.09],
-            [0.03, 0.05, 0.15, 0.09]
+            [0.03, 0.05, 0.15, 0.09],
+            [0, 0, 0.15, 0, 0]
         ])
+        # log.info(f"DEBUG: Loaded score_value configuration: {sv}")
         def resolve_weights(sv_list, idx):
             try:
                 arr = sv_list[idx]
@@ -384,7 +519,7 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             base = list(arr[:4])
             if len(base) < 4:
                 base += [0.09] * (4 - len(base))
-            special_defaults = [0.15, 0.12, 0.09, 0.07]
+            special_defaults = [0.15, 0.12, 0.09, 0.07, 0]
             try:
                 special = arr[4]
             except Exception:
@@ -396,15 +531,16 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 1)
         elif 48 < date <= 60:
             w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 2)
-        else:
+        elif 60 < date <= 72:
             w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 3)
+        else:
+            w_lv1, w_lv2, w_rainbow, w_hint, w_special = resolve_weights(sv, 4)
         try:
-            se_weights = getattr(getattr(ctx, 'task', None), 'detail', None)
-            se_weights = getattr(se_weights, 'spirit_explosion', None)
+            se_weights = getattr(ctx.cultivate_detail, 'spirit_explosion', [0.16, 0.16, 0.16, 0.06, 0.11])
             if not isinstance(se_weights, (list, tuple)) or len(se_weights) != 5:
-                se_weights = [0.9, 0.9, 0.9, 0.5, 0.5]
+                se_weights = [0.16, 0.16, 0.16, 0.06, 0.11]
         except Exception:
-            se_weights = [0.9, 0.9, 0.9, 0.5, 0.5]
+            se_weights = [0.16, 0.16, 0.16, 0.06, 0.11]
 
         from module.umamusume.define import SupportCardType, SupportCardFavorLevel
         from module.umamusume.asset.template import REF_TRAINING_HINT
@@ -425,11 +561,26 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
         log.info(f"lv1: {w_lv1}")
         log.info(f"lv2: {w_lv2}")
         log.info(f"Rainbows: {w_rainbow}")
+        log.info(f"Hint: {w_hint}")
         try:
             if ctx.cultivate_detail.scenario.scenario_type() == ScenarioType.SCENARIO_TYPE_AOHARUHAI:
-                log.info(f"Special Training weight: {w_special}")
+                log.info(f"Special Training score: {w_special}")
+                log.info(f"Spirit Explosion scores: {se_weights}")
         except Exception:
             pass
+
+        from bot.conn.fetch import read_energy
+        try:
+            current_energy = int(read_energy())
+            if current_energy == 0:
+                time.sleep(0.37)
+                current_energy = int(read_energy())
+        except Exception:
+            current_energy = None
+        try:
+            rest_threshold = int(getattr(ctx.cultivate_detail, 'rest_treshold', getattr(ctx.cultivate_detail, 'fast_path_energy_limit', 48)))
+        except Exception:
+            rest_threshold = 48
 
         for idx in range(5):
             til = ctx.cultivate_detail.turn_info.training_info_list[idx]
@@ -438,6 +589,7 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             lv2c = 0
             rbc = 0
             npc = 0
+            pal_count = 0
             score = 0.0
             for sc in (getattr(til, "support_card_info_list", []) or []):
                 favor = getattr(sc, "favor", SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_UNKNOWN)
@@ -455,10 +607,19 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
                     score += 0.05
                     continue
                 if ctype == SupportCardType.SUPPORT_CARD_TYPE_UNKNOWN:
-                    # Do not count or score unknowns
                     continue
                 if favor == SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_UNKNOWN:
-                    # Skip if favor cannot be determined
+                    continue
+
+                if ctype == SupportCardType.SUPPORT_CARD_TYPE_FRIEND:
+                    pal_count += 1
+                    pal_scores = ctx.cultivate_detail.pal_friendship_score
+                    if favor == SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_1:
+                        score += pal_scores[0]
+                    elif favor == SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_2:
+                        score += pal_scores[1]
+                    elif favor in (SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_3, SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_4):
+                        score += pal_scores[2]
                     continue
                 is_rb = False
                 if hasattr(sc, "is_rainbow"):
@@ -467,7 +628,10 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
                     is_rb = True
                 if is_rb:
                     rbc += 1
-                    score += w_rainbow
+                    if idx == 4 and current_energy is not None and current_energy > 85:
+                        log.info("energy >85, wit rainbow=0")
+                    else:
+                        score += w_rainbow
                     continue
                 if favor == SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_1:
                     lv1c += 1
@@ -475,6 +639,7 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
                 elif favor == SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_2:
                     lv2c += 1
                     score += w_lv2
+            
             log.info(f"{names[idx]}:")
             try:
                 fr = int(getattr(til, 'failure_rate', -1))
@@ -485,11 +650,21 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             log.info(f"  lv1: {lv1c}")
             log.info(f"  lv2: {lv2c}")
             log.info(f"  Rainbows: {rbc}")
+            
+            if rbc >= 2:
+                rainbow_multiplier = 1.0 + (rbc - 1) * 0.075
+                base_score = score
+                score *= rainbow_multiplier
+                log.info(f"  Multiple rainbows bonus multiplier: x{rainbow_multiplier:.2f} ({rbc} cards) (Base: {base_score:.3f} -> {score:.3f})")
+            
             if npc:
                 log.info(f"  NPCs: {npc}")
+            if pal_count:
+                log.info(f"  Pal cards: {pal_count}")
             try:
                 if ctx.cultivate_detail.scenario.scenario_type() == ScenarioType.SCENARIO_TYPE_AOHARUHAI:
-                    log.info(f"  special training: {special_counts[idx]}")
+                    if special_counts[idx] > 0:
+                        log.info(f"  Special training available: {special_counts[idx]} cards")
                     if spirit_counts[idx] > 0:
                         try:
                             d = int(ctx.cultivate_detail.turn_info.date)
@@ -497,9 +672,9 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
                             d = -1
                         if isinstance(d, int) and d >= 46:
                             pct = min(30, d - 45)
-                            log.info(f"  spirit explosion {spirit_counts[idx]}: (-{pct}% score: date penalty)")
+                            log.info(f"  Spirit explosion available: {spirit_counts[idx]} cards (-{pct}% score: date penalty)")
                         else:
-                            log.info(f"  Spirit explosions: {spirit_counts[idx]}")
+                            log.info(f"  Spirit explosion available: {spirit_counts[idx]} cards")
             except Exception:
                 pass
             hint_bonus = 0.0
@@ -512,7 +687,8 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             score += hint_bonus
             stc_lane = special_counts[idx]
             if stc_lane > 0:
-                score += float(w_special) * float(stc_lane)
+                log.info(f"  Special training bonus: +{w_special:.3f}")
+                score += float(w_special)
             try:
                 se_w = float(se_weights[idx]) if isinstance(se_weights, (list, tuple)) and len(se_weights) == 5 else 0.0
             except Exception:
@@ -524,8 +700,10 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
                 is_aoharu = False
             if is_aoharu and idx == 4 and se_w != 0.0 and spirit_counts[idx] > 0:
                 try:
-                    from bot.conn.fetch import read_energy
                     energy = int(read_energy())
+                    if energy == 0:
+                        time.sleep(0.37)
+                        energy = int(read_energy())
                 except Exception:
                     energy = None
                 if energy is not None:
@@ -550,9 +728,16 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
                 else:
                     pct = 0
                 mult = 1.0 - (float(pct) / 100.0)
-                se_bonus = se_w * float(se_lane) * mult
+                se_bonus = se_w * mult
                 log.info(f"  Spirit explosion bonus: +{se_bonus:.3f}")
                 score += se_bonus
+
+            if pal_count > 0:
+                base_score = score
+                clamped_multiplier = max(0.0, min(1.0, ctx.cultivate_detail.pal_card_multiplier))
+                multiplier = 1.0 + clamped_multiplier
+                score *= multiplier
+                log.info(f"  Pal card multiplier: x{multiplier:.2f} (Base: {base_score:.3f} -> Final: {score:.3f})")
             try:
                 if getattr(ctx.cultivate_detail, 'compensate_failure', True):
                     fr_val = int(getattr(til, 'failure_rate', -1))
@@ -563,6 +748,22 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
                         score *= mult_fr
             except Exception:
                 pass
+
+            if idx == 4 and current_energy is not None:
+                log.info(f"energy={current_energy}, rest_threshold={rest_threshold}")
+                if current_energy > 90:
+                    score *= 0.90
+                    log.info("energy > 90, -10% to wit score")
+                elif 85 > current_energy:
+                    if rbc > 0:
+                        log.info("85 > energy with rainbows +16% to wit score")
+                        score *= 1.16
+                    else:
+                        log.info("85 > energy, +10% to wit score")
+                        score *= 1.10
+                elif current_energy > 85:
+                    pass
+
             try:
                 expect_attr = ctx.cultivate_detail.expect_attribute
                 if isinstance(expect_attr, list) and len(expect_attr) == 5:
@@ -607,19 +808,41 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
 
         ctx.cultivate_detail.turn_info.parse_train_info_finish = True
 
+        try:
+            d = int(ctx.cultivate_detail.turn_info.date)
+        except Exception:
+            d = -1
+        if isinstance(d, int) and d > 48 and d <= 72:
+            try:
+                uma = ctx.cultivate_detail.turn_info.uma_attribute
+                stats = [uma.speed, uma.stamina, uma.power, uma.will, uma.intelligence]
+                names = ["Speed", "Stamina", "Power", "Guts", "Wit"]
+                max_idx = int(np.argmax(stats)) if len(stats) == 5 else None
+                if max_idx is not None:
+                    computed_scores[max_idx] *= 0.9
+                    try:
+                        log.info(f"-10% to {names[max_idx]}, the current highest stat")
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
         max_score = max(computed_scores) if len(computed_scores) == 5 else 0.0
         eps = 1e-9
-        relevant_counts = [getattr(ctx.cultivate_detail.turn_info.training_info_list[i], 'relevant_count', 0) for i in range(5)]
-        if all(s < 0.01 for s in computed_scores):
-            log.info("no good training option. umamusume is a wit game")
+        # relevant_counts = [getattr(ctx.cultivate_detail.turn_info.training_info_list[i], 'relevant_count', 0) for i in range(5)]
+        wit_fallback_threshold = getattr(ctx.cultivate_detail, 'wit_fallback_threshold', 0.01)
+        if all(s < wit_fallback_threshold for s in computed_scores):
+            log.info(f"no good training option (all scores < {wit_fallback_threshold:.2f}). umamusume is a wit game")
             chosen_idx = 4
         elif date >= 61 and sum(rbc_counts) == 0:
             chosen_idx = 4
         else:
-            if date in (59, 60):
+            if date in (35, 36, 59, 60):
                 best_idx_tmp = int(np.argmax(computed_scores))
-                if rbc_counts[best_idx_tmp] < 2:
-                    log.info("Low rainbow count conserving energy for summer")
+                best_score_tmp = computed_scores[best_idx_tmp]
+                summer_threshold = getattr(ctx.cultivate_detail, 'summer_score_threshold', 0.34)
+                if best_score_tmp < summer_threshold:
+                    log.info(f"Low training score before summer, conserving energy (score < {summer_threshold:.2f})")
                     chosen_idx = 4
                 else:
                     ties = [i for i, v in enumerate(computed_scores) if abs(v - max_score) < eps]
@@ -642,27 +865,72 @@ def script_cultivate_training_select(ctx: UmamusumeContext):
             op_ai.training_type = local_training_type
         ctx.cultivate_detail.turn_info.turn_operation = op_ai
 
+    try:
+        best_idx_tmp = int(np.argmax(computed_scores))
+        best_score_tmp = computed_scores[best_idx_tmp]
+    except Exception:
+        best_idx_tmp = None
+        best_score_tmp = 0.0
+    
+    if (ctx.cultivate_detail.prioritize_recreation and 
+        ctx.cultivate_detail.pal_event_stage > 0 and
+        best_idx_tmp is not None):
+        
+        op_from_ai = ctx.cultivate_detail.turn_info.turn_operation
+        
+        is_race_operation = (op_from_ai is not None and 
+                            op_from_ai.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_RACE)
+        
+        if is_race_operation:
+            log.info("🏆 Race goal detected - prioritizing race over pal outing")
+        elif op_from_ai is not None and op_from_ai.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_TRAINING:
+            from bot.conn.fetch import fetch_state
+            
+            pal_name = ctx.cultivate_detail.pal_name
+            pal_thresholds = ctx.cultivate_detail.pal_thresholds
+            
+            if pal_name and pal_thresholds:
+                pal_data = pal_thresholds
+                stage = ctx.cultivate_detail.pal_event_stage
+                
+                if stage <= len(pal_data):
+                    thresholds = pal_data[stage - 1]
+                    mood_threshold, energy_threshold, score_threshold = thresholds
+                    
+                    state = fetch_state()
+                    current_energy = state.get("energy", 0)
+                    current_mood_raw = state.get("mood")
+                    current_mood = current_mood_raw if current_mood_raw is not None else 4
+                    current_score = best_score_tmp
+                    
+                    mood_below = current_mood <= mood_threshold
+                    energy_below = current_energy <= energy_threshold
+                    score_below = current_score <= score_threshold
+                    
+                    log.info(f"PAL outing - Stage {stage}:")
+                    log.info(f"Mood: {current_mood} vs {mood_threshold} - {'<' if mood_below else '>'}")
+                    log.info(f"Energy: {current_energy} vs {energy_threshold} - {'<' if energy_below else '>'}")
+                    log.info(f"Score: {current_score:.3f} vs {score_threshold} - {'<' if score_below else '>'}")
+                    
+                    if mood_below and energy_below and score_below:
+                        log.info("All 3 conditions < thresholds - overriding to pal outing")
+                        op_from_ai.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_TRIP
+                        ctx.cultivate_detail.turn_info.turn_operation = op_from_ai
+                        ctx.ctrl.click_by_point(RETURN_TO_CULTIVATE_MAIN_MENU)
+                        return
+                    else:
+                        log.info("At least one condition failed - continuing with training")
+    
     op = ctx.cultivate_detail.turn_info.turn_operation
-    if op.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_TRAINING and op.training_type != TrainingType.TRAINING_TYPE_UNKNOWN:
+    if op.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_TRAINING:
+        if op.training_type == TrainingType.TRAINING_TYPE_UNKNOWN:
+            op.training_type = local_training_type
+        
         ctx.ctrl.click_by_point(TRAINING_POINT_LIST[op.training_type.value - 1])
         time.sleep(0.35)
         ctx.ctrl.click_by_point(TRAINING_POINT_LIST[op.training_type.value - 1])
         time.sleep(1.5)
         return
-    elif op.turn_operation_type == TurnOperationType.TURN_OPERATION_TYPE_TRIP:
-        try:
-            best_idx_tmp = int(np.argmax(computed_scores))
-            best_score_tmp = computed_scores[best_idx_tmp]
-        except Exception:
-            best_idx_tmp = None
-            best_score_tmp = 0.0
-        if best_idx_tmp is not None and best_score_tmp > 0.3:
-            log.info("skipping recreation due to good training")
-            ctx.ctrl.click_by_point(TRAINING_POINT_LIST[best_idx_tmp])
-            time.sleep(0.35)
-            ctx.ctrl.click_by_point(TRAINING_POINT_LIST[best_idx_tmp])
-            time.sleep(1.5)
-            return
     
     ctx.ctrl.click_by_point(RETURN_TO_CULTIVATE_MAIN_MENU)
     return
@@ -773,26 +1041,46 @@ def script_cultivate_final_check(ctx: UmamusumeContext):
 
 
 def script_cultivate_event(ctx: UmamusumeContext):
-    # Sometimes the img fails to load. Retry
-    retries = 5
-    for attempt in range(retries):
-        try:
+    log.info("Event handler called")
+    
+    img = ctx.ctrl.get_screen()
+    if img is None or getattr(img, 'size', 0) == 0:
+        for _ in range(3):
+            time.sleep(0.2)
             img = ctx.ctrl.get_screen()
-            event_name_img = img[237:283, 111:480]
-            break
-        except Exception as e:
-            if attempt < retries - 1:
-                log.warning(f"event_name_img: Failed to extract event_name_img (attempt {attempt+1}/{retries}): {e}. Retrying in 5 seconds...")
-                time.sleep(5)
-            else:
-                log.error(f"event_name_img: Failed to extract event_name_img after {retries} attempts: {e}")
-                raise TypeError("Failed to extract event_name_img from image")
-
+            if img is not None and getattr(img, 'size', 0) > 0:
+                break
+    if img is None or getattr(img, 'size', 0) == 0:
+        log.warning("Failed to get screen")
+        return
+    h, w = img.shape[:2]
+    y1, y2, x1, x2 = 237, 283, 111, 480
+    y1 = max(0, min(h, y1)); y2 = max(y1, min(h, y2))
+    x1 = max(0, min(w, x1)); x2 = max(x1, min(w, x2))
+    event_name_img = img[y1:y2, x1:x2]
+    
     event_name = ocr_line(event_name_img, lang="en")
+    
+    if not event_name or not event_name.strip():
+        h, w = event_name_img.shape[:2]
+        event_name_img_upscaled = cv2.resize(event_name_img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+        event_name = ocr_line(event_name_img_upscaled, lang="en")
+    try:
+        from bot.recog.ocr import find_similar_text
+        event_blacklist = [
+            "", " ",
+            "Team Support",
+        ]
+        if not isinstance(event_name, str) or not event_name.strip():
+            return
+        if find_similar_text(event_name, event_blacklist, 0.9):
+            log.info(f"{event_name} blacklisted. Skipping")
+            return
+    except Exception:
+        pass
     force_choice_index = None
     try:
         if isinstance(event_name, str) and 'team at last' in event_name.lower():
-            log.info("Routing to Aoharu handler")
             from module.umamusume.script.cultivate_task.event.scenario_event import aoharuhai_team_name_event
             res = aoharuhai_team_name_event(ctx)
             if isinstance(res, int) and res > 0:
@@ -801,9 +1089,35 @@ def script_cultivate_event(ctx: UmamusumeContext):
                 return
     except Exception:
         pass
+    try:
+        if isinstance(event_name, str) and event_name.strip().lower() == "tutorial":
+            try:
+                _, choices = parse_cultivate_event(ctx, img)
+            except Exception:
+                choices = []
+
+            if not isinstance(choices, list):
+                choices = []
+            if len(choices) == 0 or len(choices) > 5:
+                try:
+                    time.sleep(0.25)
+                    img_retry = ctx.ctrl.get_screen()
+                    _, choices2 = parse_cultivate_event(ctx, img_retry)
+                    if isinstance(choices2, list) and len(choices2) > 0:
+                        choices = choices2
+                except Exception:
+                    pass
+
+            if len(choices) == 5:
+                target_pt = choices[4]
+                ctx.ctrl.click(int(target_pt[0]), int(target_pt[1]), "tutorial choice 5 override")
+                ctx.cultivate_detail.event_cooldown_until = time.time() + 2.5
+                return
+    except Exception:
+        pass
     choice_index = force_choice_index if force_choice_index is not None else get_event_choice(ctx, event_name)
-    if not isinstance(choice_index, int) or choice_index < 1:
-        choice_index = 2
+    if not isinstance(choice_index, int) or choice_index <= 0:
+        return
     if choice_index > 5:
         choice_index = 2
 
@@ -909,9 +1223,21 @@ def script_cultivate_goal_race(ctx: UmamusumeContext):
     log.info("Entering goal race function")
     img = ctx.current_screen
     current_date = parse_date(img, ctx)
+    
     if current_date == -1:
-        log.warning("Failed to parse date")
+        if not hasattr(ctx.cultivate_detail, 'goal_race_parse_failures'):
+            ctx.cultivate_detail.goal_race_parse_failures = 0
+        
+        ctx.cultivate_detail.goal_race_parse_failures += 1
+        log.warning(f"Failed to parse date (attempt {ctx.cultivate_detail.goal_race_parse_failures})")
+        
+        if ctx.cultivate_detail.goal_race_parse_failures >= 3:
+            ctx.ctrl.trigger_decision_reset = True
+            ctx.cultivate_detail.goal_race_parse_failures = 0
         return
+    
+    ctx.cultivate_detail.goal_race_parse_failures = 0
+    
     # 如果进入新的一回合，记录旧的回合信息并创建新的
     if ctx.cultivate_detail.turn_info is None or current_date != ctx.cultivate_detail.turn_info.date:
         if ctx.cultivate_detail.turn_info is not None:
@@ -1303,7 +1629,6 @@ def script_cultivate_learn_skill(ctx: UmamusumeContext):
             
         img = ctx.ctrl.get_screen()
         current_screen_skill_list = get_skill_list(img, learn_skill_list,learn_skill_blacklist)
-        # Avoid duplicate counting (will occur when page turning is incomplete at page end)
         for i in current_screen_skill_list:
             if i not in skill_list:
                 skill_list.append(i)
@@ -1379,7 +1704,10 @@ def script_cultivate_learn_skill(ctx: UmamusumeContext):
                 continue
             
         # Find all skills at this priority level
-        priority_skills = [skill for skill in skill_list if skill["priority"] == priority_level and skill["available"] is True]
+        priority_skills = sorted(
+            [skill for skill in skill_list if skill["priority"] == priority_level and skill["available"] is True],
+            key=lambda s: -int(s.get("hint_level", 0))
+        )
         log.debug(f"🔍 Found {len(priority_skills)} skills at priority {priority_level}")
         
         for skill in priority_skills:

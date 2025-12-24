@@ -18,7 +18,7 @@ ENERGY_TRIP_GENERAL = 90
 ENERGY_REST_EXTRA_DAY = 65
 MIN_SUPPORT_GOOD_TRAINING_URA = 2
 MIN_SUPPORT_GOOD_TRAINING = 3
-SUMMER_CONSERVE_DATES = (59, 60)
+SUMMER_CONSERVE_DATES = (35, 36, 59, 60)
 SUMMER_CONSERVE_ENERGY = 60
 URA_RACE_WINDOWS = [
     ((73, 75), 2381, UI_CULTIVATE_URA_RACE_1),
@@ -72,12 +72,57 @@ def get_operation(ctx: UmamusumeContext) -> TurnOperation | None:
         return turn_operation
 
     if (mood_raw is not None) and energy < ENERGY_FAST_TRIP and mood_val < mood_threshold:
-        log.info("mood fast path")
-        turn_operation.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_TRIP
-        return turn_operation
+        if getattr(ctx.cultivate_detail, 'prioritize_recreation', False) and ctx.cultivate_detail.pal_event_stage > 0:
+            try:
+                img = ctx.current_screen
+                if img is not None:
+                    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    from module.umamusume.asset.template import UI_RECREATION_FRIEND_NOTIFICATION
+                    result = image_match(img_gray, UI_RECREATION_FRIEND_NOTIFICATION)
+                    if result.find_match:
+                        log.info("mood fast path - PAL notification detected, returning TRIP")
+                        turn_operation.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_TRIP
+                        return turn_operation
+                    else:
+                        log.info("mood fast path - PAL notification NOT detected, skipping TRIP")
+            except Exception:
+                pass
+        else:
+            log.info("mood fast path - regular trip (PAL not configured)")
+            turn_operation.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_TRIP
+            return turn_operation
 
     limit = getattr(ctx.cultivate_detail, 'rest_treshold', getattr(ctx.cultivate_detail, 'fast_path_energy_limit', 48))
     if energy <= limit:
+        if getattr(ctx.cultivate_detail, 'prioritize_recreation', False) and ctx.cultivate_detail.pal_event_stage > 0:
+            try:
+                img = ctx.current_screen
+                if img is not None:
+                    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    from module.umamusume.asset.template import UI_RECREATION_FRIEND_NOTIFICATION
+                    result = image_match(img_gray, UI_RECREATION_FRIEND_NOTIFICATION)
+                    if result.find_match:
+                        pal_thresholds = ctx.cultivate_detail.pal_thresholds
+                        if pal_thresholds:
+                            stage = ctx.cultivate_detail.pal_event_stage
+                            if stage <= len(pal_thresholds):
+                                thresholds = pal_thresholds[stage - 1]
+                                mood_threshold = thresholds[0]
+                                energy_threshold = thresholds[1]
+                                
+                                mood_below = mood_val <= mood_threshold
+                                energy_below = energy <= energy_threshold
+                                
+                                log.info(f"PAL outing check - Stage {stage}:")
+                                log.info(f"Mood: {mood_val} vs {mood_threshold} - {'<=' if mood_below else '>'}")
+                                log.info(f"Energy: {energy} vs {energy_threshold} - {'<=' if energy_below else '>'}")
+                                
+                                if mood_below and energy_below:
+                                    log.info("Both conditions met - using pal outing instead of rest")
+                                    turn_operation.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_TRIP
+                                    return turn_operation
+            except Exception:
+                pass
         log.info(f"rest threshold: energy={energy}, threshold={limit} - prioritizing rest")
         turn_operation.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_REST
         return turn_operation
@@ -209,6 +254,33 @@ def get_operation(ctx: UmamusumeContext) -> TurnOperation | None:
             elif (ctx.cultivate_detail.turn_info.date == 36 or ctx.cultivate_detail.turn_info.date == 60) and energy < ENERGY_REST_EXTRA_DAY:
                 rest = True
             if rest:
+                if getattr(ctx.cultivate_detail, 'prioritize_recreation', False) and ctx.cultivate_detail.pal_event_stage > 0:
+                    try:
+                        if cached_screen is not None:
+                            from module.umamusume.asset.template import UI_RECREATION_FRIEND_NOTIFICATION
+                            result = image_match(cached_screen, UI_RECREATION_FRIEND_NOTIFICATION)
+                            if result.find_match:
+                                pal_thresholds = ctx.cultivate_detail.pal_thresholds
+                                if pal_thresholds:
+                                    stage = ctx.cultivate_detail.pal_event_stage
+                                    if stage <= len(pal_thresholds):
+                                        thresholds = pal_thresholds[stage - 1]
+                                        mood_threshold = thresholds[0]
+                                        energy_threshold = thresholds[1]
+                                        
+                                        mood_below = mood_val <= mood_threshold
+                                        energy_below = energy <= energy_threshold
+                                        
+                                        log.info(f"PAL outing check - Stage {stage}:")
+                                        log.info(f"Mood: {mood_val} vs {mood_threshold} - {'<=' if mood_below else '>'}")
+                                        log.info(f"Energy: {energy} vs {energy_threshold} - {'<=' if energy_below else '>'}")
+                                        
+                                        if mood_below and energy_below:
+                                            log.info("Both conditions met - using pal outing instead of rest")
+                                            turn_operation.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_TRIP
+                                            return turn_operation
+                    except Exception:
+                        pass
                 log.info(f"🏥 Low stamina ({energy}) - prioritizing rest over URA race")
                 turn_operation.turn_operation_type = TurnOperationType.TURN_OPERATION_TYPE_REST
                 return turn_operation
@@ -249,11 +321,73 @@ def get_operation(ctx: UmamusumeContext) -> TurnOperation | None:
             log.info("No recreation as good training detected")
             trip = False
         else:
-            trip = True
+            if getattr(ctx.cultivate_detail, 'prioritize_recreation', False) and ctx.cultivate_detail.pal_event_stage > 0:
+                try:
+                    if cached_screen is not None:
+                        from module.umamusume.asset.template import UI_RECREATION_FRIEND_NOTIFICATION
+                        result = image_match(cached_screen, UI_RECREATION_FRIEND_NOTIFICATION)
+                        if result.find_match:
+                            log.info("Recreation conditions met and PAL notification detected")
+                            trip = True
+                        else:
+                            log.info("Recreation conditions met but PAL notification NOT detected - skipping trip")
+                            trip = False
+                    else:
+                        trip = False
+                except Exception:
+                    trip = False
+            else:
+                log.info("Recreation conditions met - regular trip (PAL not configured)")
+                trip = True
+
+    if trip and limit < 90 and energy > 26:
+        log.info("Checking if outing is better than rest")
 
     rest = False
+    pal_outing_available = False
     if energy <= limit:
-        rest = True
+        if trip and limit < 90 and energy > 26:
+            rest = False
+        elif getattr(ctx.cultivate_detail, 'prioritize_recreation', False) and ctx.cultivate_detail.pal_event_stage > 0:
+            try:
+                if cached_screen is not None:
+                    from module.umamusume.asset.template import UI_RECREATION_FRIEND_NOTIFICATION
+                    result = image_match(cached_screen, UI_RECREATION_FRIEND_NOTIFICATION)
+                    if result.find_match:
+                        pal_thresholds = ctx.cultivate_detail.pal_thresholds
+                        if pal_thresholds:
+                            stage = ctx.cultivate_detail.pal_event_stage
+                            if stage <= len(pal_thresholds):
+                                thresholds = pal_thresholds[stage - 1]
+                                mood_threshold = thresholds[0]
+                                energy_threshold = thresholds[1]
+                                
+                                mood_below = mood_val <= mood_threshold
+                                energy_below = energy <= energy_threshold
+                                
+                                log.info(f"PAL outing check - Stage {stage}:")
+                                log.info(f"Mood: {mood_val} vs {mood_threshold} - {'<=' if mood_below else '>'}")
+                                log.info(f"Energy: {energy} vs {energy_threshold} - {'<=' if energy_below else '>'}")
+                                
+                                if mood_below and energy_below:
+                                    log.info("Both conditions met - using pal outing instead of rest")
+                                    pal_outing_available = True
+                                    trip = True
+                                    rest = False
+                                else:
+                                    rest = True
+                            else:
+                                rest = True
+                        else:
+                            rest = True
+                    else:
+                        rest = True
+                else:
+                    rest = True
+            except Exception:
+                rest = True
+        else:
+            rest = True
     elif (ctx.cultivate_detail.turn_info.date == 36 or ctx.cultivate_detail.turn_info.date == 60) and energy < ENERGY_REST_EXTRA_DAY:
         rest = True
 
@@ -261,33 +395,22 @@ def get_operation(ctx: UmamusumeContext) -> TurnOperation | None:
 
     if medic and expect_operation_type is TurnOperationType.TURN_OPERATION_TYPE_UNKNOWN:
         expect_operation_type = TurnOperationType.TURN_OPERATION_TYPE_MEDIC
-    if trip and expect_operation_type is TurnOperationType.TURN_OPERATION_TYPE_UNKNOWN:
+    elif trip and expect_operation_type is TurnOperationType.TURN_OPERATION_TYPE_UNKNOWN:
         expect_operation_type = TurnOperationType.TURN_OPERATION_TYPE_TRIP
-    if rest and expect_operation_type is TurnOperationType.TURN_OPERATION_TYPE_UNKNOWN:
+    elif rest and expect_operation_type is TurnOperationType.TURN_OPERATION_TYPE_UNKNOWN:
         expect_operation_type = TurnOperationType.TURN_OPERATION_TYPE_REST
 
     if expect_operation_type is TurnOperationType.TURN_OPERATION_TYPE_UNKNOWN:
         date_num = ctx.cultivate_detail.turn_info.date
         if date_num in SUMMER_CONSERVE_DATES:
-            rainbow = 0
             try:
                 best_idx = max(range(5), key=lambda i: training_score[i]) if len(training_score) == 5 else 0
-                til = ctx.cultivate_detail.turn_info.training_info_list[best_idx]
-                target_type = type_map[best_idx]
-                for sc in (getattr(til, "support_card_info_list", []) or []):
-                    ctype = getattr(sc, "card_type", None)
-                    favor = getattr(sc, "favor", None)
-                    is_rb = False
-                    if hasattr(sc, "is_rainbow") and bool(getattr(sc, "is_rainbow")) and (ctype == target_type):
-                        is_rb = True
-                    if not is_rb and (ctype == target_type and favor in (SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_3, SupportCardFavorLevel.SUPPORT_CARD_FAVOR_LEVEL_4)):
-                        is_rb = True
-                    if is_rb:
-                        rainbow += 1
+                best_score = training_score[best_idx] if len(training_score) == 5 else 0.0
             except Exception:
-                rainbow = 0
-            if rainbow < 2:
-                log.info("Low rainbow count conserving energy for summer")
+                best_score = 0.0
+            summer_threshold = getattr(ctx.cultivate_detail, 'summer_score_threshold', 0.34)
+            if best_score < summer_threshold:
+                log.info(f"Low training score before summer, conserving energy (score < {summer_threshold:.2f})")
                 if energy < SUMMER_CONSERVE_ENERGY:
                     expect_operation_type = TurnOperationType.TURN_OPERATION_TYPE_REST
                 else:

@@ -1,80 +1,44 @@
-Due to recent ui changes please report any races that fails to get detected so i can update their images
-
+![uma musume](docs/umabike.gif)
 # UMAMUSUME AUTO TRAINER
+[![Discord](https://img.shields.io/badge/Discord-join-green?logo=discord&logoColor=white)](https://discord.gg/8nwNZdxd72)  
+**Discord that im not in I dont own and will never look at (you guys can go hang out ig but dont try contacting me there)**
+
 
 ![UAT](docs/main.png)
 
 ---
 
-welp got conscripted. For 2 years+ updates will slow down greatly now.
-I get free time on Saturdays only now (updates not guaranteed on Saturdays.)
+# **A automation tool for Uma Musume: Pretty Derby**
 
-### please read the readme before opening a issue  
-
-## New user? [Read this to improve your runs](#training-settings-guide)
-
-## Credits
-- **Original Orginal Repository**: [UmamusumeAutoTrainer](https://github.com/shiokaze/UmamusumeAutoTrainer) by [Shiokaze](https://github.com/shiokaze)
-
-- **This project is a detached fork of**: [UmamusumeAutoTrainer-Global](https://github.com/BrayAlter/UAT-Global-Server) by [BrayAlter](https://github.com/BrayAlter) who first ported the orginal to the global server
-
-
----
-
-If you're like me and is using this because you wont have access to your pc for long periods of time consider using this in tandem with   
-[https://github.com/rustdesk/rustdesk/releases/](https://github.com/rustdesk/rustdesk)
-
-## Features
-
-### Core Automation
-- ✅ **Automatic Training**: Complete training scenarios for ALL Umas
-  - This includes the handling of:  
-    - **Custom races** 
-    - **Skill acquisition**
-    - **Claw machine**
-    - **Running styles** 
-    - **Alarm clock usage** 
-    - **Almost every part of training is customizable (How much to focus on friendship, rainbows, hints ect ect and when)** 
-    - **Optimal event choices (Knows when to build friendship/recover energy and mood) [is also customizable for skill hunting]**
-    - **Skipping bad turns with wit training**
-    - **I'm not gonna list everything. Just search for keywords in the repo if you are wondering if a feature exist**
-
-- ✅ **Completely hands off**: Recover tp, Starting runs, finding the right guest card
+### Things this bot can do
+- ✅ **Completely hands off**: Recover tp, Starting runs, finding the right guest card are all automated.
   - **Everything is 100% automated you can just afk for **DAYS** until legacy umas are full**
   - **Handles everything from disconnections to the game crashing. The show will go on as long as there isn't a new update. (it handles that too now lol)**
-  - **Supports background play via emulators. (You can play another game while this runs)**
-  - **If Auto tp recovery is set to false it will wait until you have enough tp to start the career run**
+  - **Supports background play as this runs on mobile emulators not the steam release. (You can play another game while this runs)**
 
-- ✅ **Saving of presets**: Save training parameters for easy access in future runs
+- ✅ **Able to play every part of every Senario (As of writing this; URA and Unity)**
+  - Is able to perform every action a human would take. From comparing skill hint levels to playing the claw machine and even deciding whether to conserve energy before summer or not. Everything you normally do this bot probably does it.
 
-- ✅ **Team trials execution mode**: its under Execution Mode not Task Selection.
+- ✅ **Supports every single uma and deckType**:
+ -Every Aspect of training is customizable, If you're willing to spend time in the settings any playstyle becomes possible. For a quick overview please watch the video below as to what you can edit.      
+  
+(Video is outdated look at changelog or use the github search feature too check if something u want is there)
 
-- ✅ **Human Behaviour**: Bot will Automatically shut down and restart based on configured timing (Runs 24 hours by default but not recommended), Inputs are also humanized.
+[demo.webm](https://github.com/user-attachments/assets/40a5c402-d154-4b02-8a61-96ba07e29319)
 
-### Demo Run
+
 - I'd say its about 80% as competent as a actual player. This makes the bot not just a fan/parent farmer but it's more than capable of producing ACES  
-[Demo run with a older build (im too lazy to record a new one)](https://youtu.be/J07n4wvLSCw)
+  ## [Showcase of 3 runs in a row (loop until canceled)](https://www.youtube.com/watch?v=vboSuUZyeU0)
 
 ## 🚨 Safety
 Question: Is this safe?  
 
-Answer: Safer than the steam release (All of your processes are transparent lmao), I have done what I can to humanize the inputs. **BUT** if they decide to put in the effort they **WILL** find you. It is near impossible to simulate perfect human behavior with code so use at your own risk. I take no responsibility.  **HIDING BEHIND A EMULATOR DOES NOT MAKE YOU UNDETECTABLE YOU HAVE BEEN WARNED**  
+Answer: Safer than the steam release (All of your processes are transparent lmao), I have done what I can to humanize the inputs. **BUT** if they decide to put in the effort they **WILL** find you. It is near impossible to simulate perfect human behavior with code so use at your own risk. I take no responsibility.  **HIDING BEHIND A EMULATOR DOES NOT MAKE YOU UNDETECTABLE YOU HAVE BEEN WARNED.** That being said it is still very difficult to detect as they have nothing to look at apart from metadata of your clicks. So you're likely fine  
 Answer 2: As long as there are people cheating on the steam release we are chilling (if ykyk)  
 https://en.wikipedia.org/wiki/Sentinel_species    
 
 Running this 24/7 looks sus as hell so I would suggest turning it off for a few hours every day.  
-you can also edit the start and end time in `main.py` (24 hours format) to dictate when the bot can run)
-
-## 📦 Installation & Setup
-Tutorial someone made: https://youtu.be/v1m9Plw7M3Y  
-
-#### Clone Repository
-```bash
-git clone https://github.com/oofmatoes/UAT-Global-Server
-cd UAT-Global-Server
-```
-  
-
+you can edit the start and end time in `main.py` (24 hours format) to dictate when the bot can run)
 
 ### Emulator Setup
 
@@ -86,9 +50,14 @@ cd UAT-Global-Server
 - **Graphics**: Standard (not Simple)
 - **ADB**: Must be enabled in emulator settings
 
-### Launch
+## 📦 Installation & Setup
+Just cd into any folder and run 
 
-Ensure python 3.10 is installed:
+```bash
+git clone https://github.com/oofmatoes/UAT-Global-Server
+```
+
+Then ensure python 3.10 is installed:
 
 ```bash
 uninstall whatever python version you have
@@ -107,6 +76,8 @@ Or just run start.bat
 
 ---
 
+if u can follow then heres a tutorial someone made (I didn't actually watch it lol): https://youtu.be/v1m9Plw7M3Y  
+
 ## ⚠️ Important Notes
 
 As single run mode is deprecated if you wish to emulated it you can enable "Manual skill purchase at the end" to achieve the same thing 
@@ -119,7 +90,6 @@ As single run mode is deprecated if you wish to emulated it you can enable "Manu
 
 ## 🔧 Troubleshooting
 
-### Common Issues
 
 #### Fan Goals Fail
 
@@ -155,12 +125,7 @@ I will only focus on fixing issues for those (which is what I use personally.) E
 - For most issues with outdated/wrong data  
   - https://github.com/BrayAlter/UAT-Global-Server/issues/63#issuecomment-3296260518 (you can stop at npx vite build btw it builds directly to the right folder now).  
 
-## Training settings guide
-- **Upon creating a new deck the first thing you should do is experiment with the values under advanced options**
-- These values are made for 3/3 split decks THEY ARE NOT 1 SIZE FITS ALL  
-  ![alt text](docs/default.png)
-
-### STAT CAPS
+### STAT CAPS (People keep messing this up)
 - Under normal circumstances you want to just put a large number into all of them like so this way it will always pick the best training option
   ![alt text](docs/statCaps.png)
 - HOWEVER if you keep maxxing out a stat too early for example 1000+ speed before the 2nd summer you would want to do this
@@ -172,59 +137,101 @@ I will only focus on fixing issues for those (which is what I use personally.) E
   95% or higher will now have 0 score (IF YOU SEE THIS THERE IS A ISSUE WITH YOUR DECK AND THE BOT WILL PERFORM POORLY)
  - IT IS ENCOURAGED THAT YOU RE-EVALUATE YOUR DECK INSTEAD. THIS WAY THE BOT CAN CLICK THE BEST OPTION 100% OF THE TIME INSTEAD OF ARTIFICIALLY LIMITING AND CLICKING A WORSE OPTION 
 
-### STRUGGLING WITH A CERTAIN STAT
-- If you are struggling with a certain stat (Guts) you can raise the summer weight of that stat (while reducing others) to encourage the bot totake advantage of the LV5 summer facilities
-  ![alt text](docs/summerWeight.png)
-
-### Hint/Skills hunting
-- Raise the score of hints. This way the bot will always take the training with hints in them
-  ![alt text](docs/hintHunting.png)
-- If you want to bot to select a certain event option scroll to the bottom of task creation
-  > Expand Skill List  
-  > Search For Your Event  
-  > Select Event Choice  
-  ![alt text](docs/huntHint.png)  
-
-### STRUGGLING WITH THE CAREER
-#### Early game stat gain is too low
-- Raise the classic year rainbows score to promote early game stat growth (this will hurt long term stat gain however)
-  ![alt text](docs/classicRainbow.png)
-
-### The bot picks bad races when not enough fans to meet goals (Pre-op, Op, G3)
-- If a career runs has high fan goals (Top gun, Urara) you should be manually selecting the races instead of letting the bot pick for you
-  ![alt text](docs/races.png)
-
-### The bot is buying irelevant skills.
-- Left click on a skill to prioritize it (blue), right click to blacklist it (red)   
-  ![alt text](docs/skills.png)
-- OR set Learn when skill points ≥ to a very high number and set manual purchase to true
-  ![alt text](docs/manualBuy.png)
-
 ## 🤝 Contributing
 
 If you ask and pinky promise you won't just nuke everything I can just give you collaborator permissions.
 
 ## Disclosure
 Something Something this is for educational purposes only. Please do not misuse to break umamusume or cygames terms of service.   
+![uma](docs/flower.gif)  
 *cough cough*
-![alt text](docs/topcunt.gif)
+
 
 ## Changelogs
-- **10/16/2025**  
+- **23/12/2025**  
+fixed date phrasing fail causing a loop.
+go update requirements.txt thx     
+
+- **21/12/2025**  
+Logging in from your phone/another device now causes the current task to pause.     
+Forced brightness check again everytime infirmary is pressed.
+
+- **19/12/2025**  
+Exposed event weight to webui for user to configure.     
+<img width="904" height="705" alt="{63DC8091-9B58-4229-B56C-5C8B3A74CA56}" src="https://github.com/user-attachments/assets/69f749bc-e8bb-4edf-b707-52538e64cb6b" />   
+
+
+- **16/12/2025**  
+Event list updated.   
+
+- **14/12/2025**  
+Having 2+ rainbow now applies a 7.5% multiplier for every additional rainbow above 1.    
+Fixed spirit explosions and special training not respecting user inputs.   
+
+- **13/12/2025**  
+Minimum score before conserving energy before summer and minimum score before forcing wit training are now customizable.   
+
+- **12/12/2025**  
+Fixed recreation breaking training (forcing wit) when pal outing is configured with no pal notification. (OH I DIDNT FUCKING PUSH)  
+
+- **11/12/2025**  
+bug fixes I'm not gonna bother listing.   
+
+- **9/12/2025**  
+Fixed outing not having priority over rest  
+
+- **9/12/2025**  
+Pal Cards are good to go  
+Fixed yesterday's infinite loop fuck up
+Custom scoring for Finale dates   
+Made pal outing override rest if all conditions are met and max energy threshold < 90.  
+Added option to override insufficient fans forced races  
+Blacklisted event name '' to prevent misclicks and slightly speed things up  
+
+- **8/12/2025**  
+Updated event list  
+Added custom card names  
+<img width="1210" height="376" alt="image" src="https://github.com/user-attachments/assets/f97186c2-6dc0-4c9c-a583-0b134d1dfa69" />
+
+Added custom thresholds to go outing for pal event chains (DO NOT USE PAL CARDS YET FEEL FREE TO HELP TEST AND DEBUG BUT PAL CARDS STILL SUCK IM NOT DONE WITH THEIR TRAINING FACILITY SCORING)  
+<img width="1036" height="363" alt="{E79E2232-EFF0-4976-8FD8-1278503DFFBB}" src="https://github.com/user-attachments/assets/f0901600-3fb4-49d4-87a5-00ab36efda0e" />
+
+- **5/12/2025**   
+Added a overwrite for event "Training" to click the 5th choice if 5 choices are detected (apparently people are still getting stuck there somehow)
+Training tweaks. Energy management should be more effecient now  
+
+- **30/11/2025**   
+added -10% score penalty to the highest stat in senior year to hopefully balance stats out (experimental might remove).  
+
+- **29/11/2025**   
+Fixed getting stuck at aoharu tutorial event sometimes  
+Updated event list    
+Added Select/Deselect all skills blacklist/priority based on whats being searched  
+Dropped repetitive clicks recovery reset threshold from 5 to 2   
+
+- **28/11/2025**  
+Maybe fixed bot getting stuck sometimes after ending a career.    
+Maybe fixed bot restarting and wasting time sometimes when detecting a event.  
+Skill hint level detection; Will now purchase the highest skill hint level of each priority before moving on to the next priority.  
+
+- **22/11/2025**  
+Added drag and drop of skills between priorities and blacklist (Drag them outside into nothing to deselect completely)  
+
+- **16/11/2025**  
 Attempted to fix some crashes   
 patched up team trials execution mode  
 
-- **10/15/2025**  
+- **15/11/2025**  
 updated some support card names  
 aoharu (unity cup) team name selection works now
 
-- **10/14/2025**  
+- **14/11/2025**  
 updated skill list  
 Fixed getting stuck in support card selection
 Stat cap score calc hard cap
 default target attributes changed  
 
-- **10/12/2025**   
+- **12/11/2025**   
 "Use last selected parents" Option added in webui.  
 support for team trials quick mode
 
@@ -259,3 +266,17 @@ Soft reset after every task. Should help with memory issues.
 - **28/9/2025**   
 Team trials execution mode. not tested and held together by hopes and dreams so its probably gonna break half the time.  
 Maybe fix card selection breaking
+
+## Planned/In progress (In order from top to bottom)
+- starting work on full auto mode gonna have no other updates for a while   
+- im going to uma my musumes 
+
+
+## Credits
+- **Original Orginal Repository**: [UmamusumeAutoTrainer](https://github.com/shiokaze/UmamusumeAutoTrainer) by [Shiokaze](https://github.com/shiokaze)
+
+- **This project is a detached fork of**: [UmamusumeAutoTrainer-Global](https://github.com/BrayAlter/UAT-Global-Server) by [BrayAlter](https://github.com/BrayAlter) who first ported the orginal to the global server
+
+
+Stop shilling this shit on /vg/ with the retarded forced meme ur making me look bad
+

@@ -89,6 +89,7 @@ TITLE = [
     "Unmet Requirements", #43 (Fail maiden race lmao just glue)
     "Items Selected", #44
     "Auto Select", #45
+    "Session Error", #46
 ]
 
 
@@ -206,9 +207,20 @@ def script_info(ctx: UmamusumeContext):
                     ctx.ctrl.click_by_point(RACE_FAIL_CONTINUE_CANCEL)
                     log.info("🔋 Reached Clock limit, cancel race")
             else:
-                # Not a race fail screen, just confirm
-                ctx.ctrl.click_by_point(RACE_FAIL_CONTINUE_CANCEL)
-                log.info("🔋 Not a race fail screen - canceling")
+                time.sleep(0.17)
+                img_retry = ctx.ctrl.get_screen(to_gray=True)
+                retry_result = image_match(img_retry, UI_RACE_FAIL)
+                if retry_result.find_match:
+                    if ctx.cultivate_detail.clock_used < ctx.cultivate_detail.clock_use_limit:
+                        ctx.ctrl.click_by_point(RACE_FAIL_CONTINUE_USE_CLOCK)
+                        ctx.cultivate_detail.clock_used += 1
+                        log.info("(retry) Clock limit %s, used %s", str(ctx.cultivate_detail.clock_use_limit), str(ctx.cultivate_detail.clock_used))
+                    else:
+                        ctx.ctrl.click_by_point(RACE_FAIL_CONTINUE_CANCEL)
+                        log.info("(retry) Reached Clock limit, cancel race")
+                else:
+                    ctx.ctrl.click_by_point(RACE_FAIL_CONTINUE_CANCEL)
+                    log.info("🔋 Not a race fail screen - canceling")
             log.debug("Clock limit %s, used %s", str(ctx.cultivate_detail.clock_use_limit),
                         str(ctx.cultivate_detail.clock_used))
         if title_text == TITLE[5]: #Earned Title
@@ -219,31 +231,27 @@ def script_info(ctx: UmamusumeContext):
             ctx.ctrl.click_by_point(SCENARIO_SHORTEN_SET_2)
             time.sleep(0.5)
             ctx.ctrl.click_by_point(SCENARIO_SHORTEN_CONFIRM)
-        if title_text == TITLE[8]: #Recreation
-            # Check for different types of recreation by detecting templates
+        if title_text == TITLE[8]:
             img = ctx.current_screen
             img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             from module.umamusume.asset.template import UI_FRIEND_RECREATION, UI_FRIEND_RECREATION_COMPLETE
             
-            # Check for friend recreation complete first (most specific)
             result_complete = image_match(img_gray, UI_FRIEND_RECREATION_COMPLETE)
             log.info(f"🔍 Recreation - Friend recreation complete template match: {result_complete.find_match}")
             
             if result_complete.find_match:
-                # This is friend recreation complete - use CULTIVATE_TRIP_WITH_FRIEND_COMPLETE
                 log.info("🏖️ Friend recreation complete detected - using CULTIVATE_TRIP_WITH_FRIEND_COMPLETE")
                 ctx.ctrl.click_by_point(CULTIVATE_TRIP_WITH_FRIEND_COMPLETE)
+                
+                pass
             else:
-                # Check for regular friend recreation
                 result = image_match(img_gray, UI_FRIEND_RECREATION)
                 log.info(f"🔍 Recreation - Friend recreation template match: {result.find_match}")
                 
                 if result.find_match:
-                    # This is friend recreation - use CULTIVATE_TRIP_WITH_FRIEND
                     log.info("🏖️ Friend recreation detected - using CULTIVATE_TRIP_WITH_FRIEND")
                     ctx.ctrl.click_by_point(CULTIVATE_TRIP_WITH_FRIEND)
                 else:
-                    # This is regular recreation - use CULTIVATE_OPERATION_COMMON_CONFIRM
                     log.info("🏖️ Regular recreation detected - using CULTIVATE_OPERATION_COMMON_CONFIRM")
                     ctx.ctrl.click_by_point(CULTIVATE_OPERATION_COMMON_CONFIRM)
         if title_text == TITLE[9]: #Confirmation
@@ -441,11 +449,18 @@ def script_info(ctx: UmamusumeContext):
                     ctx.cultivate_detail.turn_info.turn_operation = None
 
         if title_text == TITLE[21]:  # insufficient fans (was TITLE[19])
-            log.info("🏆 insufficient fans detected - navigating to races to fulfill fan goals")
+            log.info("🏆 insufficient fans detected")
             
+            if ctx.task.detail.override_insufficient_fans_forced_races:
+                log.info("Override insufficient fans forced races is enabled")
+                ctx.ctrl.click_by_point(CULTIVATE_FAN_NOT_ENOUGH_RETURN)
+                time.sleep(0.3)
+                return
+            
+            log.info("🏁 Navigating to races to fulfill fan goals")
             # Close popup to return to main menu where date is visible
             ctx.ctrl.click_by_point(CULTIVATE_FAN_NOT_ENOUGH_RETURN)
-            time.sleep(2)  # Wait longer for main menu to fully load
+            time.sleep(1)  # Wait longer for main menu to fully load
             
             # Refresh screen to get the actual main menu
             ctx.current_screen = ctx.ctrl.get_screen()
@@ -626,4 +641,9 @@ def script_info(ctx: UmamusumeContext):
                     ctx.ctrl.click(214, 832, "Auto Select")
             except Exception:
                 ctx.ctrl.click(214, 832, "Auto Select")
+        if title_text == TITLE[46]:  # Session Error
+            log.info("User login from somewhere else")
+            from bot.engine import scheduler
+            scheduler.scheduler.stop()
+            return
         time.sleep(1)

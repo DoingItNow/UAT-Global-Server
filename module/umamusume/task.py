@@ -22,15 +22,20 @@ class TaskDetail:
     extra_weight: list
     spirit_explosion: list
     manual_purchase_at_end: bool
+    override_insufficient_fans_forced_races: bool
     use_last_parents: bool
     # Motivation thresholds for trip logic
     motivation_threshold_year1: int
     motivation_threshold_year2: int
     motivation_threshold_year3: int
     prioritize_recreation: bool
+    pal_name: str
+    pal_thresholds: list
+    pal_friendship_score: list[float]
+    pal_card_multiplier: float
     score_value: list
     compensate_failure: bool
-    # 剧本相关配置
+    event_weights: dict
     scenario_config: ScenarioConfig
     # 限时: 富士奇石的表演秀
     fujikiseki_show_mode: bool
@@ -79,20 +84,29 @@ def build_task(task_execute_mode: TaskExecuteMode, task_type: int,
     td.spirit_explosion = attachment_data.get('spirit_explosion', [0.9, 0.9, 0.9, 0.5, 0.5])
     td.compensate_failure = attachment_data.get('compensate_failure', True)
     td.manual_purchase_at_end = attachment_data['manual_purchase_at_end']
+    td.override_insufficient_fans_forced_races = attachment_data.get('override_insufficient_fans_forced_races', False)
     td.use_last_parents = attachment_data.get('use_last_parents', False)
     td.cure_asap_conditions = attachment_data.get("cure_asap_conditions", "")
     td.rest_treshold = attachment_data.get('rest_treshold', attachment_data.get('fast_path_energy_limit', 48))
-    # Load motivation thresholds (with defaults)
+    td.summer_score_threshold = attachment_data.get('summer_score_threshold', 0.34)
+    td.wit_fallback_threshold = attachment_data.get('wit_fallback_threshold', 0.01)
+    
     td.motivation_threshold_year1 = attachment_data.get('motivation_threshold_year1', 3)
     td.motivation_threshold_year2 = attachment_data.get('motivation_threshold_year2', 4)
     td.motivation_threshold_year3 = attachment_data.get('motivation_threshold_year3', 4)
     td.prioritize_recreation = attachment_data.get('prioritize_recreation', False)
+    td.pal_name = attachment_data.get('pal_name', "")
+    td.pal_thresholds = attachment_data.get('pal_thresholds', [])
+
+    td.pal_friendship_score = attachment_data.get('pal_friendship_score', [0.08, 0.057, 0.018])
+    td.pal_card_multiplier = attachment_data.get('pal_card_multiplier', 0.1)
 
     td.score_value = attachment_data.get('score_value', [
         [0.11, 0.10, 0.01, 0.09],
         [0.11, 0.10, 0.09, 0.09],
         [0.11, 0.10, 0.12, 0.09],
-        [0.03, 0.05, 0.15, 0.09]
+        [0.03, 0.05, 0.15, 0.09],
+        [0, 0, 0.15, 0, 0]
     ])
     
     td.cultivate_result = {}
@@ -107,6 +121,12 @@ def build_task(task_execute_mode: TaskExecuteMode, task_type: int,
         td.event_overrides = eo if isinstance(eo, dict) else {}
     except Exception:
         td.event_overrides = {}
+    
+    try:
+        ew = attachment_data.get('event_weights', None)
+        td.event_weights = ew if isinstance(ew, dict) else None
+    except Exception:
+        td.event_weights = None
 
     td.fujikiseki_show_difficulty = attachment_data['fujikiseki_show_difficulty']
     ut.detail = td

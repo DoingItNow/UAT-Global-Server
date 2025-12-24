@@ -323,20 +323,107 @@
                 </div>
               </div>
               <div class="row">
-                <div class="col">
+                <div class="col-6">
                   <div class="form-group">
-                    <div class="form-check">
-                      <input type="checkbox" v-model="prioritizeRecreation" class="form-check-input"
-                        id="prioritizeRecreation">
-                      <label class="form-check-label" for="prioritizeRecreation">
-                        Prioritize Recreation (Pal Type Support Card)
-                      </label>
+                    <label class="d-block mb-1">I am using a pal support card (Limit of 1)</label>
+                    <div class="token-toggle" role="group" aria-label="Prioritize Recreation">
+                      <button type="button" class="token" :class="{ active: prioritizeRecreation }" @click="prioritizeRecreation = true">Yes</button>
+                      <button type="button" class="token" :class="{ active: !prioritizeRecreation }" @click="prioritizeRecreation = false">No</button>
                     </div>
-                    <small class="form-text text-muted">(optional) only use this if you bring Pal type Support Card like
-                      Tazuna in Career</small>
                   </div>
                 </div>
               </div>
+              <div v-if="prioritizeRecreation" class="pal-config-section mt-3 mb-3">
+                <div class="pal-config-header" @click="togglePalConfigPanel">
+                  <div class="pal-config-title">
+                    <i class="fas fa-users"></i>
+                    Pal outing upper threshold (will go outing when all values are below what is set) btw great mood is 5 and awful is 1 (normal is 3)
+                  </div>
+                  <div class="pal-config-toggle">
+                    <span class="toggle-text">{{ showPalConfigPanel ? 'Hide' : 'Show' }}</span>
+                    <i class="fas" :class="showPalConfigPanel ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                  </div>
+                </div>
+                <div v-if="showPalConfigPanel" class="pal-config-content">
+                  <div v-for="(palData, palName) in palCardStore" :key="palName" class="pal-card-item">
+                    <div class="pal-card-header">
+                      <div class="pal-card-checkbox">
+                        <button type="button" class="pal-checkbox" :class="{ checked: palSelected === palName }" @click="togglePalCardSelection(palName)">
+                          <i class="fas fa-check" v-if="palSelected === palName"></i>
+                        </button>
+                      </div>
+                      <div class="pal-card-name">{{ palName }}</div>
+                    </div>
+                    <div v-if="palSelected === palName" class="pal-stages-list">
+                      <div v-for="(stageData, stageIdx) in palData" :key="stageIdx" class="pal-stage-row">
+                        <div class="stage-label">Stage {{ stageIdx + 1 }}</div>
+                        <div class="stage-inputs">
+                          <div class="input-group input-group-sm">
+                            <span class="input-group-text">Mood</span>
+                            <input type="number" class="form-control" v-model.number="palCardStore[palName][stageIdx][0]" min="0" max="5">
+                          </div>
+                          <div class="input-group input-group-sm">
+                            <span class="input-group-text">Energy</span>
+                            <input type="number" class="form-control" v-model.number="palCardStore[palName][stageIdx][1]" min="0" max="100">
+                          </div>
+                          <div class="input-group input-group-sm">
+                            <span class="input-group-text">Score</span>
+                            <input type="number" step="0.01" class="form-control" v-model.number="palCardStore[palName][stageIdx][2]" min="0" max="1">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+
+                <div class="pal-card-config-section mt-3">
+                  <div class="pal-card-config-header">
+                    <i class="fas fa-star"></i>
+                    Pal Card Config
+                  </div>
+                  <div class="pal-card-config-content">
+                    <div class="config-row">
+                      <label class="config-label">Pal Friendship Score</label>
+                      <div class="row">
+                        <div class="col-4">
+                          <div class="form-group">
+                            <label for="pal-blue-score">Blue</label>
+                            <input type="number" step="0.001" v-model.number="palFriendshipScore[0]" class="form-control form-control-sm" id="pal-blue-score" min="0" max="1">
+                          </div>
+                        </div>
+                        <div class="col-4">
+                          <div class="form-group">
+                            <label for="pal-green-score">Green</label>
+                            <input type="number" step="0.001" v-model.number="palFriendshipScore[1]" class="form-control form-control-sm" id="pal-green-score" min="0" max="1">
+                          </div>
+                        </div>
+                        <div class="col-4">
+                          <div class="form-group">
+                            <label for="pal-maxed-score">Maxed</label>
+                            <input type="number" step="0.001" v-model.number="palFriendshipScore[2]" class="form-control form-control-sm" id="pal-maxed-score" min="0" max="1">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="config-row mt-3">
+                      <label class="config-label">Pal Card Multi (0-100%)</label>
+                      <div class="row">
+                        <div class="col-4">
+                          <div class="form-group">
+                            <div class="input-group input-group-sm">
+                              <input type="number" step="0.01" v-model.number="palCardMultiplier" class="form-control" id="pal-card-multi" min="0" max="1">
+                              <span class="input-group-text">{{ (palCardMultiplier * 100).toFixed(0) }}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <div class="form-group">
                   <div class="advanced-options-header" @click="switchAdvanceOption">
@@ -389,15 +476,6 @@
                       @input="onExtraWeightInput(extraWeightSummer, i)" id="speed-value-input">
                   </div>
                 </div>
-                <div v-if="selectedScenario === 2" style="margin: 12px 0 10px; color: var(--accent); border-top: 1px solid var(--accent); padding-top: 8px;">Spirit Explosion Score</div>
-                <div v-if="selectedScenario === 2" class="row">
-                  <div v-for="(v, i) in extraSpiritExplosion" :key="i" class="col-md-2 col-6">
-                    <div class="form-group mb-1"><small>{{ ['Speed','Stamina','Power','Guts','Wit'][i] }}</small></div>
-                    <input type="number" v-model="extraSpiritExplosion[i]" class="form-control"
-                      @input="onExtraWeightInput(extraSpiritExplosion, i)" id="speed-value-input">
-                  </div>
-                </div>
-
                 <hr style="border-color: var(--accent); opacity: 0.5; margin: 12px 0;">
                 <div class="form-group" style="margin-top: 16px;">
                   <div style="color: var(--accent);">Score Value</div>
@@ -507,6 +585,66 @@
                         <div class="form-group mb-1"><small>Special Training</small></div>
                         <input type="number" step="0.01" v-model.number="specialSeniorAfterSummer" class="form-control">
                       </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="row mb-2">
+                  <div class="col-12">
+                    <label>Finale</label>
+                    <div class="row">
+                      <div class="col-md-2 col-6">
+                        <div class="form-group mb-1"><small>Blue Friendship</small></div>
+                        <input type="number" step="0.01" v-model.number="scoreValueFinale[0]" class="form-control">
+                      </div>
+                      <div class="col-md-2 col-6">
+                        <div class="form-group mb-1"><small>Green Friendship</small></div>
+                        <input type="number" step="0.01" v-model.number="scoreValueFinale[1]" class="form-control">
+                      </div>
+                      <div class="col-md-2 col-6">
+                        <div class="form-group mb-1"><small>Rainbow</small></div>
+                        <input type="number" step="0.01" v-model.number="scoreValueFinale[2]" class="form-control">
+                      </div>
+                      <div class="col-md-2 col-6">
+                        <div class="form-group mb-1"><small>Hint</small></div>
+                        <input type="number" step="0.01" v-model.number="scoreValueFinale[3]" class="form-control">
+                      </div>
+                      <div class="col-md-2 col-6" v-if="selectedScenario === 2">
+                        <div class="form-group mb-1"><small>Special Training</small></div>
+                        <input type="number" step="0.01" v-model.number="specialFinale" class="form-control">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="selectedScenario === 2" class="row mb-2" style="margin-top: 16px; border-top: 1px solid var(--accent); padding-top: 12px;">
+                  <div class="col-12">
+                    <label style="color: var(--accent);">Spirit Explosion Score</label>
+                    <p style="font-size: 0.9em; margin-bottom: 8px;">Score bonus for spirit explosion training (applies to all training types)</p>
+                    <div class="row">
+                      <div v-for="(v, i) in extraSpiritExplosion" :key="i" class="col-md-2 col-6">
+                        <div class="form-group mb-1"><small>{{ ['Speed','Stamina','Power','Guts','Wit'][i] }}</small></div>
+                        <input type="number" step="0.01" v-model.number="extraSpiritExplosion[i]" class="form-control"
+                          @input="onExtraWeightInput(extraSpiritExplosion, i)">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <hr style="border-color: var(--accent); opacity: 0.5; margin: 12px 0;">
+                <div class="form-group" style="margin-top: 16px;">
+                  <div style="color: var(--accent);">Training Thresholds</div>
+                </div>
+                <div class="row">
+                  <div class="col-md-3 col-6">
+                    <div class="form-group">
+                      <label for="inputSummerScoreThreshold">Summer Score Threshold</label>
+                      <input v-model.number="summerScoreThreshold" type="number" step="0.01" min="0" max="1" class="form-control" id="inputSummerScoreThreshold">
+                    </div>
+                  </div>
+                  <div class="col-md-3 col-6">
+                    <div class="form-group">
+                      <label for="inputWitFallbackThreshold">Wit Fallback Threshold</label>
+                      <input v-model.number="witFallbackThreshold" type="number" step="0.01" min="0" max="1" class="form-control" id="inputWitFallbackThreshold">
                     </div>
                   </div>
                 </div>
@@ -808,13 +946,22 @@
                     <i class="fas fa-trophy"></i>
                     Priority 0
                   </label>
-                  <div class="selected-skills-box">
+                  <div class="selected-skills-box"
+                       @dragover.prevent
+                       @dragenter.prevent="onDragEnterPriority(0)"
+                       @dragleave.prevent="onDragLeavePriority(0)"
+                       @drop.prevent="onDropToPriority(0)"
+                       :class="{ 'drop-hover': dropHoverTarget && dropHoverTarget.type === 'priority' && dropHoverTarget.priority === 0 }">
                     <div v-if="getSelectedSkillsForPriority(0).length === 0" class="empty-state">
                       The skill that user already select listed in here
                     </div>
                     <div v-else class="selected-skills-list">
                       <div v-for="skillName in getSelectedSkillsForPriority(0)" :key="skillName"
-                        class="selected-skill-item">
+                        class="selected-skill-item"
+                        draggable="true"
+                        @dragstart="onDragStartSkill(skillName, 'priority', 0)"
+                        @dragend="onDragEndSkill"
+                        :class="{ dragging: draggingSkillName === skillName }">
                         {{ skillName }}
                       </div>
                     </div>
@@ -827,13 +974,22 @@
                     <i class="fas fa-medal"></i>
                     Priority {{ priority }}
                   </label>
-                  <div class="selected-skills-box">
+                  <div class="selected-skills-box"
+                       @dragover.prevent
+                       @dragenter.prevent="onDragEnterPriority(priority)"
+                       @dragleave.prevent="onDragLeavePriority(priority)"
+                       @drop.prevent="onDropToPriority(priority)"
+                       :class="{ 'drop-hover': dropHoverTarget && dropHoverTarget.type === 'priority' && dropHoverTarget.priority === priority }">
                     <div v-if="getSelectedSkillsForPriority(priority).length === 0" class="empty-state">
                       The skill that user already select listed in here
                     </div>
                     <div v-else class="selected-skills-list">
                       <div v-for="skillName in getSelectedSkillsForPriority(priority)" :key="skillName"
-                        class="selected-skill-item">
+                        class="selected-skill-item"
+                        draggable="true"
+                        @dragstart="onDragStartSkill(skillName, 'priority', priority)"
+                        @dragend="onDragEndSkill"
+                        :class="{ dragging: draggingSkillName === skillName }">
                         {{ skillName }}
                       </div>
                     </div>
@@ -860,12 +1016,21 @@
                   <i class="fas fa-ban"></i>
                   Blacklist
                 </label>
-                <div class="blacklist-box">
+                <div class="blacklist-box"
+                     @dragover.prevent
+                     @dragenter.prevent="onDragEnterBlacklist"
+                     @dragleave.prevent="onDragLeaveBlacklist"
+                     @drop.prevent="onDropToBlacklist"
+                     :class="{ 'drop-hover': dropHoverTarget && dropHoverTarget.type === 'blacklist' }">
                   <div v-if="blacklistedSkills.length === 0" class="empty-state">
                     The skill that user already select blacklisted in here
                   </div>
                   <div v-else class="blacklisted-skills-list">
-                    <div v-for="skillName in blacklistedSkills" :key="skillName" class="blacklisted-skill-item">
+                    <div v-for="skillName in blacklistedSkills" :key="skillName" class="blacklisted-skill-item"
+                         draggable="true"
+                         @dragstart="onDragStartSkill(skillName, 'blacklist')"
+                         @dragend="onDragEndSkill"
+                         :class="{ dragging: draggingSkillName === skillName }">
                       {{ skillName }}
                     </div>
                   </div>
@@ -934,10 +1099,12 @@
                           placeholder="Search by skill name or description" />
                       </div>
                       <div class="col-md-4 d-flex align-items-end">
-                        <button type="button" class="btn btn-outline-secondary btn-sm ml-auto"
-                          @click="clearSkillFilters">
-                          <i class="fas fa-times"></i> Clear Filters
-                        </button>
+                        <div class="skill-filter-actions ml-auto">
+                          <button type="button" class="btn btn--outline" @click="onSelectAllFiltered">Select All</button>
+                          <button type="button" class="btn btn--outline" @click="onBlacklistAllFiltered">Blacklist All</button>
+                          <button type="button" class="btn btn--outline" @click="onClearAllFiltered">Clear All</button>
+                          <button type="button" class="btn btn--outline" @click="onUnblacklistAllFiltered">Unblacklist All</button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1013,10 +1180,111 @@
                     </div>
                   </div>
                 </div>
+                <div class="row">
+                  <div class="col-md-6">
+                    <label class="d-block mb-1">Override insufficient fans forced races</label>
+                    <div class="token-toggle" role="group" aria-label="Override insufficient fans forced races">
+                      <button type="button" class="token" :class="{ active: overrideInsufficientFansForcedRaces }"
+                        @click="overrideInsufficientFansForcedRaces = true">On</button>
+                      <button type="button" class="token" :class="{ active: !overrideInsufficientFansForcedRaces }"
+                        @click="overrideInsufficientFansForcedRaces = false">Off</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           <div class="category-card" id="category-event">
               <div class="category-title">Event Settings</div>
+
+              <div class="form-group mt-4 event-weights-section">
+                <div class="event-weights-header">
+                  <div class="event-weights-title">
+                    <i class="fas fa-calculator"></i>
+                    Event Scoring Weights
+                  </div>
+                  <button type="button" class="btn btn-sm btn-outline-secondary reset-weights-btn" @click="resetEventWeights">
+                    <i class="fas fa-undo"></i> Reset to Defaults
+                  </button>
+                </div>
+                <div class="event-weights-description">
+                  <p class="description-text">
+                    <strong>How it works:</strong> The bot calculates a score for each event choice by multiplying every gain by their weights, then selects the highest scoring option.
+                  </p>
+                  <div class="calculation-formula">
+                    <strong>Example:</strong> <code>Score = (Friend × Weight) + (Speed × Weight) + (Stamina × Weight) + (Power × Weight) + (Guts × Weight) + (Wits × Weight) + (Hint × Weight) + (Skill Pts × Weight)</code>
+                  </div>
+                  <div class="special-cases">
+                    <strong>Special Behaviors:</strong>
+                    <ul>
+                      <li><strong>Mood (9999):</strong> Extremely high weight ensures mood recovery is prioritized when mood is low. Auto-disabled when mood is maxed (Level 5).</li>
+                      <li><strong>Max Energy (50):</strong> Weight of 50. Auto-disabled in Senior year.</li>
+                      <li><strong>Energy (16):</strong> Dynamically adjusted based on current energy: disabled when energy > 84 (near full), increased to 30 when energy is 40-60 (to avoid rest), 16 otherwise.</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered event-weights-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 20%;">Stat</th>
+                        <th style="width: 26.67%;">Junior</th>
+                        <th style="width: 26.67%;">Classic</th>
+                        <th style="width: 26.67%;">Senior</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><strong>Friend</strong></td>
+                        <td><input type="number" v-model.number="eventWeightsJunior.Friendship" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsClassic.Friendship" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsSenior.Friendship" class="form-control form-control-sm" min="0" max="100"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>Speed</strong></td>
+                        <td><input type="number" v-model.number="eventWeightsJunior.Speed" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsClassic.Speed" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsSenior.Speed" class="form-control form-control-sm" min="0" max="100"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>Stamina</strong></td>
+                        <td><input type="number" v-model.number="eventWeightsJunior.Stamina" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsClassic.Stamina" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsSenior.Stamina" class="form-control form-control-sm" min="0" max="100"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>Power</strong></td>
+                        <td><input type="number" v-model.number="eventWeightsJunior.Power" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsClassic.Power" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsSenior.Power" class="form-control form-control-sm" min="0" max="100"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>Guts</strong></td>
+                        <td><input type="number" v-model.number="eventWeightsJunior.Guts" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsClassic.Guts" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsSenior.Guts" class="form-control form-control-sm" min="0" max="100"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>Wits</strong></td>
+                        <td><input type="number" v-model.number="eventWeightsJunior.Wits" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsClassic.Wits" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsSenior.Wits" class="form-control form-control-sm" min="0" max="100"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>Hint</strong></td>
+                        <td><input type="number" v-model.number="eventWeightsJunior.Hint" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsClassic.Hint" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsSenior.Hint" class="form-control form-control-sm" min="0" max="100"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>Skill Pts</strong></td>
+                        <td><input type="number" v-model.number="eventWeightsJunior['Skill Points']" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsClassic['Skill Points']" class="form-control form-control-sm" min="0" max="100"></td>
+                        <td><input type="number" v-model.number="eventWeightsSenior['Skill Points']" class="form-control form-control-sm" min="0" max="100"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
               <div class="form-group">
                 <div class="mb-2" style="color: var(--accent); font-weight: 700;">
@@ -1168,7 +1436,231 @@
   background: rgba(255,45,163,0.04) !important;
 }
 
+.selected-skill-item,
+.blacklisted-skill-item {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.selected-skill-item.dragging,
+.blacklisted-skill-item.dragging {
+  transform: scale(1.05);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+  opacity: 0.8;
+  cursor: grabbing;
+}
+.selected-skills-box.drop-hover,
+.blacklist-box.drop-hover {
+  outline: 2px dashed var(--accent);
+  background: rgba(255,45,163,0.06);
+}
 
+#category-skill .skill-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  width: 100%;
+}
+#category-skill .skill-filter-actions .btn {
+  white-space: nowrap;
+}
+
+.pal-config-section {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: rgba(255, 45, 163, 0.04);
+  overflow: hidden;
+}
+
+.pal-card-config-section {
+  border: 1px solid rgba(255, 45, 163, 0.3);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 12px;
+}
+
+.pal-card-config-header {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--accent);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.pal-card-config-header i {
+  margin-right: 8px;
+}
+
+.pal-card-config-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.pal-config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #000;
+  border-bottom: 1px solid var(--accent);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pal-config-header:hover {
+  background: rgba(255, 45, 163, 0.12);
+}
+
+.pal-config-title {
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  color: var(--text);
+}
+
+.pal-config-title i {
+  margin-right: 8px;
+  color: var(--accent);
+}
+
+.pal-config-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.pal-config-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pal-card-item {
+  border: 1px solid rgba(255, 45, 163, 0.3);
+  border-radius: 6px;
+  background: #000;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.pal-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 45, 163, 0.2);
+}
+
+.pal-card-checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.pal-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: white;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.pal-checkbox:hover {
+  background: rgba(255, 45, 163, 0.1);
+}
+
+.pal-checkbox.checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.pal-checkbox i {
+  font-size: 14px;
+}
+
+.pal-card-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  flex: 1;
+}
+
+.pal-stages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pal-stage-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.stage-label {
+  color: var(--accent-pink);
+  font-weight: 700;
+  text-transform: uppercase;
+  flex: 0 0 80px;
+}
+
+.stage-inputs {
+  display: flex;
+  flex: 1;
+  gap: 1rem;
+}
+
+.stage-inputs .input-group {
+  flex: 1;
+  border: 1px solid var(--accent-pink);
+  border-radius: 0.25rem;
+  overflow: hidden;
+  display: flex;
+}
+
+.stage-inputs .input-group .form-control {
+  background-color: transparent;
+  color: #fff;
+  border: none;
+  min-width: 0;
+}
+
+.stage-inputs .input-group .input-group-text {
+  color: var(--accent-pink);
+  background-color: transparent;
+  border: none;
+}
+
+.input-group-text {
+  background-color: var(--b-surface-bright);
+  border-color: var(--accent-secondary);
+  color: var(--accent-secondary);
+}
 
 </style>
 
@@ -1207,6 +1699,7 @@ export default {
       ],
       activeSection: 'category-general',
       manualPurchase: false,
+      overrideInsufficientFansForcedRaces: false,
       showAdvanceOption: false,
       showRaceList: false,
       dataReady: false,
@@ -1296,7 +1789,7 @@ export default {
         follow_support_card: { id: 10001, name: 'Beyond This Shining Moment', desc: 'Silence Suzuka' },
         follow_support_card_level: 50,
         clock_use_limit: 99,
-        learn_skill_threshold: 9999,
+        learn_skill_threshold: 888,
         race_tactic_1: 4,
         race_tactic_2: 4,
         race_tactic_3: 4,
@@ -1327,7 +1820,9 @@ export default {
       clockUseLimit: 99,
       restTreshold: 48,
       compensateFailure: true,
-      learnSkillThreshold: 9999,
+      summerScoreThreshold: 0.34,
+      witFallbackThreshold: 0.01,
+      learnSkillThreshold: 888,
       cureAsapConditions: 'Migraine,Night Owl,Skin Outbreak,Slacker,Slow Metabolism,(Practice poor isn\'t worth a turn to cure)',
       recoverTP: 0,
       useLastParents: false,
@@ -1347,6 +1842,12 @@ export default {
       motivationThresholdYear2: 4,
       motivationThresholdYear3: 4,
       prioritizeRecreation: false,
+      showPalConfigPanel: true,
+      palCardStore: {},
+      palSelected: "",
+      // Pal card scoring configuration
+      palFriendshipScore: [0.08, 0.057, 0.018],
+      palCardMultiplier: 0.1,
 
       // URA配置
       skillEventWeight: [0, 0, 0],
@@ -1386,6 +1887,42 @@ export default {
       showSkillList: false
       , showPresetMenu: false,
 
+            draggingSkillName: null,
+      dragOrigin: null,
+      
+      eventWeightsJunior: {
+        Friendship: 35,
+        Speed: 10,
+        Stamina: 10,
+        Power: 10,
+        Guts: 20,
+        Wits: 1,
+        Hint: 100,
+        'Skill Points': 10
+      },
+      eventWeightsClassic: {
+        Friendship: 20,
+        Speed: 10,
+        Stamina: 10,
+        Power: 10,
+        Guts: 20,
+        Wits: 1,
+        Hint: 100,
+        'Skill Points': 10
+      },
+      eventWeightsSenior: {
+        Friendship: 0,
+        Speed: 10,
+        Stamina: 10,
+        Power: 10,
+        Guts: 20,
+        Wits: 1,
+        Hint: 100,
+        'Skill Points': 10
+      },
+      dropHoverTarget: null,
+      didValidDrop: false,
+
       // Event list UI
       showEventList: false,
       eventQuery: '',
@@ -1397,11 +1934,21 @@ export default {
       scoreValueClassic: [0.11, 0.10, 0.09, 0.09],
       scoreValueSenior: [0.11, 0.10, 0.12, 0.09],
       scoreValueSeniorAfterSummer: [0.03, 0.05, 0.15, 0.09],
+      scoreValueFinale: [0, 0, 0.27, 0],
       specialJunior: 0.095,
       specialClassic: 0.095,
       specialSenior: 0.095,
       specialSeniorAfterSummer: 0.095,
+      specialFinale: 0,
           }
+  },
+  mounted() {
+        window.addEventListener('dragend', this.onGlobalDragEnd, false);
+    window.addEventListener('drop', this.onGlobalDrop, false);
+  },
+  beforeUnmount() {
+    window.removeEventListener('dragend', this.onGlobalDragEnd, false);
+    window.removeEventListener('drop', this.onGlobalDrop, false);
   },
   computed: {
     filteredRaces_1() {
@@ -1630,6 +2177,7 @@ export default {
     this.loadSkillData()
     this.initSelect()
     this.getPresets()
+    this.loadPalCardStore()
     this.successToast = $('#liveToast').toast({})
     this.$nextTick(() => {
       this.initScrollSpy()
@@ -1659,9 +2207,228 @@ export default {
       if (this.selectedScenario === 2 && Array.isArray(val) && val.length < 5) {
         this.scoreValueSeniorAfterSummer = [...val, ...Array(5 - val.length).fill(0.07)]
       }
+    },
+    scoreValueFinale(val) {
+      if (this.selectedScenario === 2 && Array.isArray(val) && val.length < 5) {
+        this.scoreValueFinale = [...val, ...Array(5 - val.length).fill(0)]
+      }
     }
   },
     methods: {
+    loadPalCardStore() {
+      this.axios.get('/api/pal-defaults', null, false)
+        .then(res => {
+          if (res && res.data) {
+            this.palCardStore = res.data;
+            const palNames = Object.keys(this.palCardStore);
+            if (palNames.length > 0 && !this.palSelected) {
+              this.palSelected = palNames[0];
+            }
+          }
+        })
+        .catch(() => {});
+    },
+    resetEventWeights() {
+      this.eventWeightsJunior = {
+        Friendship: 35,
+        Speed: 10,
+        Stamina: 10,
+        Power: 10,
+        Guts: 20,
+        Wits: 1,
+        Hint: 100,
+        'Skill Points': 10
+      };
+      this.eventWeightsClassic = {
+        Friendship: 20,
+        Speed: 10,
+        Stamina: 10,
+        Power: 10,
+        Guts: 20,
+        Wits: 1,
+        Hint: 100,
+        'Skill Points': 10
+      };
+      this.eventWeightsSenior = {
+        Friendship: 0,
+        Speed: 10,
+        Stamina: 10,
+        Power: 10,
+        Guts: 20,
+        Wits: 1,
+        Hint: 100,
+        'Skill Points': 10
+      };
+    },
+    togglePalConfigPanel() {
+    this.showPalConfigPanel = !this.showPalConfigPanel;
+    },
+    togglePalCardSelection(palName) {
+    if (this.palSelected === palName) {
+    if (!this.prioritizeRecreation) {
+      this.palSelected = null;
+    }
+    } else {
+    this.palSelected = palName;
+    }
+    },
+    getFilteredNames() {
+        const names = [];
+        Object.keys(this.filteredSkillsByType).forEach(type => {
+          (this.filteredSkillsByType[type] || []).forEach(s => names.push(s.name));
+        });
+        return names;
+      },
+      onSelectAllFiltered() {
+        const targetPriority = Math.max(...this.activePriorities);
+        this.getFilteredNames().forEach(name => {
+          const bi = this.blacklistedSkills.indexOf(name);
+          if (bi > -1) this.blacklistedSkills.splice(bi, 1);
+          if (!this.selectedSkills.includes(name)) this.selectedSkills.push(name);
+          this.$set ? this.$set(this.skillAssignments, name, targetPriority) : (this.skillAssignments[name] = targetPriority);
+        });
+      },
+      onBlacklistAllFiltered() {
+        this.getFilteredNames().forEach(name => {
+          const si = this.selectedSkills.indexOf(name);
+          if (si > -1) this.selectedSkills.splice(si, 1);
+          if (this.skillAssignments[name] !== undefined) delete this.skillAssignments[name];
+          if (!this.blacklistedSkills.includes(name)) this.blacklistedSkills.push(name);
+        });
+      },
+      onClearAllFiltered() {
+        const set = new Set(this.getFilteredNames());
+        this.selectedSkills = this.selectedSkills.filter(name => {
+          if (set.has(name)) {
+            if (this.skillAssignments[name] !== undefined) delete this.skillAssignments[name];
+            return false;
+          }
+          return true;
+        });
+      },
+      onUnblacklistAllFiltered() {
+        const set = new Set(this.getFilteredNames());
+        this.blacklistedSkills = this.blacklistedSkills.filter(name => !set.has(name));
+      },
+      selectAllFilteredToCurrentPriority() {
+        const targetPriority = Math.max(...this.activePriorities);
+        const names = [];
+        Object.keys(this.filteredSkillsByType).forEach(type => {
+          this.filteredSkillsByType[type].forEach(s => names.push(s.name));
+        });
+        names.forEach(name => {
+          const bi = this.blacklistedSkills.indexOf(name);
+          if (bi > -1) this.blacklistedSkills.splice(bi, 1);
+          if (!this.selectedSkills.includes(name)) this.selectedSkills.push(name);
+          this.$set ? this.$set(this.skillAssignments, name, targetPriority) : (this.skillAssignments[name] = targetPriority);
+        });
+      },
+      blacklistAllFiltered() {
+        const names = [];
+        Object.keys(this.filteredSkillsByType).forEach(type => {
+          this.filteredSkillsByType[type].forEach(s => names.push(s.name));
+        });
+        names.forEach(name => {
+          const si = this.selectedSkills.indexOf(name);
+          if (si > -1) this.selectedSkills.splice(si, 1);
+          if (this.skillAssignments[name] !== undefined) delete this.skillAssignments[name];
+          if (!this.blacklistedSkills.includes(name)) this.blacklistedSkills.push(name);
+        });
+      },
+      clearCurrentPriority() {
+        const targetPriority = Math.max(...this.activePriorities);
+        this.selectedSkills = this.selectedSkills.filter(name => {
+          const keep = (this.skillAssignments[name] ?? 0) !== targetPriority;
+          if (!keep) delete this.skillAssignments[name];
+          return keep;
+        });
+      },
+      clearBlacklist() {
+        this.blacklistedSkills = [];
+      },
+            getSelectedSkillsForPriority(priority) {
+        return this.selectedSkills.filter(name => (this.skillAssignments[name] ?? 0) === priority);
+      },
+      getActivePriorities() {
+                return [...this.activePriorities].sort((a,b) => a-b);
+      },
+      onDragStartSkill(skillName, origin, originPriority = null) {
+        this.draggingSkillName = skillName;
+        this.dragOrigin = { type: origin, priority: originPriority };
+        this.didValidDrop = false;
+      },
+      onDragEndSkill() {
+                if (this.draggingSkillName) {
+          if (!this.didValidDrop) {
+            this.deselectSkill(this.draggingSkillName);
+          }
+          this.draggingSkillName = null;
+          this.dropHoverTarget = null;
+          this.didValidDrop = false;
+          this.dragOrigin = null;
+        }
+      },
+      onDragEnterPriority(priority) {
+        this.dropHoverTarget = { type: 'priority', priority };
+      },
+      onDragLeavePriority(priority) {
+        if (this.dropHoverTarget && this.dropHoverTarget.type === 'priority' && this.dropHoverTarget.priority === priority) {
+          this.dropHoverTarget = null;
+        }
+      },
+      onDropToPriority(priority) {
+        if (!this.draggingSkillName) return;
+        this.moveSkillToPriority(this.draggingSkillName, priority);
+        this.didValidDrop = true;
+        this.dropHoverTarget = null;
+        this.draggingSkillName = null;
+      },
+      onDragEnterBlacklist() {
+        this.dropHoverTarget = { type: 'blacklist' };
+      },
+      onDragLeaveBlacklist() {
+        if (this.dropHoverTarget && this.dropHoverTarget.type === 'blacklist') {
+          this.dropHoverTarget = null;
+        }
+      },
+      onDropToBlacklist() {
+        if (!this.draggingSkillName) return;
+        this.moveSkillToBlacklist(this.draggingSkillName);
+        this.didValidDrop = true;
+        this.dropHoverTarget = null;
+        this.draggingSkillName = null;
+      },
+      onGlobalDrop(e) {
+                if (this.draggingSkillName && !this.didValidDrop) {
+          this.deselectSkill(this.draggingSkillName);
+          this.draggingSkillName = null;
+        }
+      },
+      onGlobalDragEnd(e) {
+        if (this.draggingSkillName && !this.didValidDrop) {
+          this.deselectSkill(this.draggingSkillName);
+          this.draggingSkillName = null;
+        }
+      },
+      moveSkillToPriority(skillName, priority) {
+                const bi = this.blacklistedSkills.indexOf(skillName);
+        if (bi > -1) this.blacklistedSkills.splice(bi, 1);
+                if (!this.selectedSkills.includes(skillName)) this.selectedSkills.push(skillName);
+                this.$set ? this.$set(this.skillAssignments, skillName, priority) : (this.skillAssignments[skillName] = priority);
+      },
+      moveSkillToBlacklist(skillName) {
+                const si = this.selectedSkills.indexOf(skillName);
+        if (si > -1) this.selectedSkills.splice(si, 1);
+        if (this.skillAssignments[skillName] !== undefined) delete this.skillAssignments[skillName];
+        if (!this.blacklistedSkills.includes(skillName)) this.blacklistedSkills.push(skillName);
+      },
+      deselectSkill(skillName) {
+        const si = this.selectedSkills.indexOf(skillName);
+        if (si > -1) this.selectedSkills.splice(si, 1);
+        if (this.skillAssignments[skillName] !== undefined) delete this.skillAssignments[skillName];
+        const bi = this.blacklistedSkills.indexOf(skillName);
+        if (bi > -1) this.blacklistedSkills.splice(bi, 1);
+      },
       // Event Settings
       toggleEventList() {
         this.showEventList = !this.showEventList;
@@ -1718,6 +2485,7 @@ export default {
         setDefault(this.scoreValueClassic)
         setDefault(this.scoreValueSenior)
         setDefault(this.scoreValueSeniorAfterSummer)
+        setDefault(this.scoreValueFinale)
       }
     },
         normalizeScoreArrays(targetLen) {
@@ -1729,6 +2497,7 @@ export default {
       ensureLen(this.scoreValueClassic, 0.12)
       ensureLen(this.scoreValueSenior, 0.09)
       ensureLen(this.scoreValueSeniorAfterSummer, 0.07)
+      ensureLen(this.scoreValueFinale, 0)
     },
     togglePresetMenu() {
       this.showPresetMenu = !this.showPresetMenu;
@@ -2056,19 +2825,23 @@ export default {
           "tactic_list": [this.selectedRaceTactic1, this.selectedRaceTactic2, this.selectedRaceTactic3],
           "clock_use_limit": this.clockUseLimit,
           "manual_purchase_at_end": this.manualPurchase,
+          "override_insufficient_fans_forced_races": this.overrideInsufficientFansForcedRaces,
           "learn_skill_threshold": this.learnSkillThreshold,
           "allow_recover_tp": this.recoverTP,
           "rest_treshold": this.restTreshold,
           "compensate_failure": this.compensateFailure,
+          "summer_score_threshold": this.summerScoreThreshold,
+          "wit_fallback_threshold": this.witFallbackThreshold,
           "use_last_parents": this.useLastParents,
           "learn_skill_only_user_provided": this.learnSkillOnlyUserProvided,
           "extra_weight": [this.extraWeight1, this.extraWeight2, this.extraWeight3, this.extraWeightSummer],
           "spirit_explosion": this.extraSpiritExplosion.map(v => Math.max(-1, Math.min(1, v))),
           "score_value": [
-            (this.selectedScenario === 2 ? this.scoreValueJunior.slice(0,5) : this.scoreValueJunior.slice(0,4)),
-            (this.selectedScenario === 2 ? this.scoreValueClassic.slice(0,5) : this.scoreValueClassic.slice(0,4)),
-            (this.selectedScenario === 2 ? this.scoreValueSenior.slice(0,5) : this.scoreValueSenior.slice(0,4)),
-            (this.selectedScenario === 2 ? this.scoreValueSeniorAfterSummer.slice(0,5) : this.scoreValueSeniorAfterSummer.slice(0,4))
+            (this.selectedScenario === 2 ? [...this.scoreValueJunior.slice(0,4), this.specialJunior] : this.scoreValueJunior.slice(0,4)),
+            (this.selectedScenario === 2 ? [...this.scoreValueClassic.slice(0,4), this.specialClassic] : this.scoreValueClassic.slice(0,4)),
+            (this.selectedScenario === 2 ? [...this.scoreValueSenior.slice(0,4), this.specialSenior] : this.scoreValueSenior.slice(0,4)),
+            (this.selectedScenario === 2 ? [...this.scoreValueSeniorAfterSummer.slice(0,4), this.specialSeniorAfterSummer] : this.scoreValueSeniorAfterSummer.slice(0,4)),
+            (this.selectedScenario === 2 ? [...this.scoreValueFinale.slice(0,4), this.specialFinale] : this.scoreValueFinale.slice(0,4))
           ],
           // Motivation thresholds for trip decisions
           "motivation_threshold_year1": this.motivationThresholdYear1,
@@ -2098,6 +2871,55 @@ export default {
       console.log('POST /task', payload)
       payload.attachment_data = payload.attachment_data || {};
       payload.attachment_data.event_choices = this.buildEventChoices();
+      
+      // Add event weights to payload
+      payload.attachment_data.event_weights = {
+        junior: {
+          Friendship: this.eventWeightsJunior.Friendship,
+          Speed: this.eventWeightsJunior.Speed,
+          Stamina: this.eventWeightsJunior.Stamina,
+          Power: this.eventWeightsJunior.Power,
+          Guts: this.eventWeightsJunior.Guts,
+          Wisdom: this.eventWeightsJunior.Wits,
+          'Skill Hint': this.eventWeightsJunior.Hint,
+          'Skill Pts': this.eventWeightsJunior['Skill Points']
+        },
+        classic: {
+          Friendship: this.eventWeightsClassic.Friendship,
+          Speed: this.eventWeightsClassic.Speed,
+          Stamina: this.eventWeightsClassic.Stamina,
+          Power: this.eventWeightsClassic.Power,
+          Guts: this.eventWeightsClassic.Guts,
+          Wisdom: this.eventWeightsClassic.Wits,
+          'Skill Hint': this.eventWeightsClassic.Hint,
+          'Skill Pts': this.eventWeightsClassic['Skill Points']
+        },
+        senior: {
+          Friendship: this.eventWeightsSenior.Friendship,
+          Speed: this.eventWeightsSenior.Speed,
+          Stamina: this.eventWeightsSenior.Stamina,
+          Power: this.eventWeightsSenior.Power,
+          Guts: this.eventWeightsSenior.Guts,
+          Wisdom: this.eventWeightsSenior.Wits,
+          'Skill Hint': this.eventWeightsSenior.Hint,
+          'Skill Pts': this.eventWeightsSenior['Skill Points']
+        }
+      };
+
+      if (this.prioritizeRecreation && this.palSelected) {
+        payload.attachment_data.prioritize_recreation = true;
+        payload.attachment_data.pal_name = this.palSelected;
+        payload.attachment_data.pal_thresholds = this.palCardStore[this.palSelected];
+        payload.attachment_data.pal_friendship_score = [...this.palFriendshipScore];
+        payload.attachment_data.pal_card_multiplier = this.palCardMultiplier;
+      } else {
+        payload.attachment_data.prioritize_recreation = false;
+        payload.attachment_data.pal_name = "";
+        payload.attachment_data.pal_thresholds = [];
+        payload.attachment_data.pal_friendship_score = [0.08, 0.057, 0.018];
+        payload.attachment_data.pal_card_multiplier = 0.1;
+      }
+
       this.axios.post("/task", payload).then(
         () => {
           $('#create-task-list-modal').modal('hide');
@@ -2118,8 +2940,11 @@ export default {
         this.supportCardLevel = this.presetsUse.follow_support_card_level,
         this.clockUseLimit = this.presetsUse.clock_use_limit,
         this.restTreshold = (this.presetsUse.rest_treshold || this.presetsUse.fast_path_energy_limit || 48),
+        this.summerScoreThreshold = (this.presetsUse.summer_score_threshold !== undefined ? this.presetsUse.summer_score_threshold : 0.34),
+        this.witFallbackThreshold = (this.presetsUse.wit_fallback_threshold !== undefined ? this.presetsUse.wit_fallback_threshold : 0.01),
       this.compensateFailure = (this.presetsUse.compensate_failure !== false)
       this.useLastParents = (this.presetsUse.use_last_parents === true)
+      this.overrideInsufficientFansForcedRaces = (this.presetsUse.override_insufficient_fans_forced_races === true)
         this.learnSkillThreshold = this.presetsUse.learn_skill_threshold,
         this.selectedRaceTactic1 = this.presetsUse.race_tactic_1,
         this.selectedRaceTactic2 = this.presetsUse.race_tactic_2,
@@ -2131,6 +2956,23 @@ export default {
       this.motivationThresholdYear2 = parseInt(this.presetsUse.motivation_threshold_year2) || 4
       this.motivationThresholdYear3 = parseInt(this.presetsUse.motivation_threshold_year3) || 4
       this.prioritizeRecreation = this.presetsUse.prioritize_recreation || false
+      if ('pal_selected' in this.presetsUse) {
+        this.palSelected = this.presetsUse.pal_selected || ""
+      }
+      if ('pal_card_store' in this.presetsUse && this.presetsUse.pal_card_store) {
+        Object.assign(this.palCardStore, this.presetsUse.pal_card_store)
+      }
+
+      if ('pal_friendship_score' in this.presetsUse && Array.isArray(this.presetsUse.pal_friendship_score)) {
+        this.palFriendshipScore = [...this.presetsUse.pal_friendship_score]
+      } else {
+        this.palFriendshipScore = [0.08, 0.057, 0.018]
+      }
+      if ('pal_card_multiplier' in this.presetsUse) {
+        this.palCardMultiplier = this.presetsUse.pal_card_multiplier
+      } else {
+        this.palCardMultiplier = 0.1
+      }
       if ('event_overrides' in this.presetsUse && this.presetsUse.event_overrides) {
         this.eventChoicesSelected = { ...this.presetsUse.event_overrides }
       } else {
@@ -2142,12 +2984,39 @@ export default {
         this.scoreValueClassic = [...this.presetsUse.scoreValue[1]]
         this.scoreValueSenior = [...this.presetsUse.scoreValue[2]]
         this.scoreValueSeniorAfterSummer = [...this.presetsUse.scoreValue[3]]
-        const targetLen = (this.selectedScenario === 2) ? 5 : 4;
-        const specials = [0.15, 0.12, 0.09, 0.07]
-        const arrs = [this.scoreValueJunior, this.scoreValueClassic, this.scoreValueSenior, this.scoreValueSeniorAfterSummer]
+        if (this.presetsUse.scoreValue.length >= 5) {
+          this.scoreValueFinale = [...this.presetsUse.scoreValue[4]]
+        }
+        
+        // Extract special training values if present (5th element in each array)
+        if (this.selectedScenario === 2) {
+          if (this.scoreValueJunior.length >= 5) {
+            this.specialJunior = this.scoreValueJunior[4]
+            this.scoreValueJunior = this.scoreValueJunior.slice(0, 4)
+          }
+          if (this.scoreValueClassic.length >= 5) {
+            this.specialClassic = this.scoreValueClassic[4]
+            this.scoreValueClassic = this.scoreValueClassic.slice(0, 4)
+          }
+          if (this.scoreValueSenior.length >= 5) {
+            this.specialSenior = this.scoreValueSenior[4]
+            this.scoreValueSenior = this.scoreValueSenior.slice(0, 4)
+          }
+          if (this.scoreValueSeniorAfterSummer.length >= 5) {
+            this.specialSeniorAfterSummer = this.scoreValueSeniorAfterSummer[4]
+            this.scoreValueSeniorAfterSummer = this.scoreValueSeniorAfterSummer.slice(0, 4)
+          }
+          if (this.scoreValueFinale.length >= 5) {
+            this.specialFinale = this.scoreValueFinale[4]
+            this.scoreValueFinale = this.scoreValueFinale.slice(0, 4)
+          }
+        }
+        
+        const targetLen = 4; // Always 4 for the base score values (lv1, lv2, rainbow, hint)
+        const arrs = [this.scoreValueJunior, this.scoreValueClassic, this.scoreValueSenior, this.scoreValueSeniorAfterSummer, this.scoreValueFinale]
         arrs.forEach((arr, i) => {
           if (arr.length > targetLen) arr.splice(targetLen)
-          while (arr.length < targetLen) arr.push(targetLen === 5 ? specials[i] : 0.09)
+          while (arr.length < targetLen) arr.push(0.09)
         })
       }
 
@@ -2166,7 +3035,14 @@ export default {
         this.extraSpiritExplosion = [0.16, 0.16, 0.16, 0.06, 0.11]
       }
 
-      // Load new skill system data if available
+      if ('specialTraining' in this.presetsUse && Array.isArray(this.presetsUse.specialTraining)) {
+        if (this.specialJunior === 0.095) this.specialJunior = this.presetsUse.specialTraining[0] !== undefined ? this.presetsUse.specialTraining[0] : 0.095
+        if (this.specialClassic === 0.095) this.specialClassic = this.presetsUse.specialTraining[1] !== undefined ? this.presetsUse.specialTraining[1] : 0.095
+        if (this.specialSenior === 0.095) this.specialSenior = this.presetsUse.specialTraining[2] !== undefined ? this.presetsUse.specialTraining[2] : 0.095
+        this.specialSeniorAfterSummer = 0.095
+        this.specialFinale = 0
+      }
+
       if ('selectedSkills' in this.presetsUse && 'blacklistedSkills' in this.presetsUse && 'skillAssignments' in this.presetsUse && 'activePriorities' in this.presetsUse) {
         // New format - load directly
         this.selectedSkills = [...this.presetsUse.selectedSkills];
@@ -2251,6 +3127,50 @@ export default {
         }
       }
 
+      // Load event weights if present in preset
+      if ('event_weights' in this.presetsUse && this.presetsUse.event_weights) {
+        const ew = this.presetsUse.event_weights;
+        if (ew.junior) {
+          this.eventWeightsJunior = {
+            Friendship: ew.junior.Friendship || 35,
+            Speed: ew.junior.Speed || 10,
+            Stamina: ew.junior.Stamina || 10,
+            Power: ew.junior.Power || 10,
+            Guts: ew.junior.Guts || 20,
+            Wits: ew.junior.Wits || ew.junior.Wisdom || 1,
+            Hint: ew.junior.Hint || ew.junior['Skill Hint'] || 100,
+            'Skill Points': ew.junior['Skill Points'] || ew.junior['Skill Pts'] || 10
+          };
+        }
+        if (ew.classic) {
+          this.eventWeightsClassic = {
+            Friendship: ew.classic.Friendship || 20,
+            Speed: ew.classic.Speed || 10,
+            Stamina: ew.classic.Stamina || 10,
+            Power: ew.classic.Power || 10,
+            Guts: ew.classic.Guts || 20,
+            Wits: ew.classic.Wits || ew.classic.Wisdom || 1,
+            Hint: ew.classic.Hint || ew.classic['Skill Hint'] || 100,
+            'Skill Points': ew.classic['Skill Points'] || ew.classic['Skill Pts'] || 10
+          };
+        }
+        if (ew.senior) {
+          this.eventWeightsSenior = {
+            Friendship: ew.senior.Friendship || 0,
+            Speed: ew.senior.Speed || 10,
+            Stamina: ew.senior.Stamina || 10,
+            Power: ew.senior.Power || 10,
+            Guts: ew.senior.Guts || 20,
+            Wits: ew.senior.Wits || ew.senior.Wisdom || 1,
+            Hint: ew.senior.Hint || ew.senior['Skill Hint'] || 100,
+            'Skill Points': ew.senior['Skill Points'] || ew.senior['Skill Pts'] || 10
+          };
+        }
+      } else {
+        // Reset to defaults if not in preset
+        this.resetEventWeights();
+      }
+
       // 读取青春杯配置（如果存在）
       if ('ura_config' in this.presetsUse) {
         this.skillEventWeight = [...this.presetsUse.ura_config.skillEventWeight];
@@ -2305,16 +3225,51 @@ export default {
         event_overrides: this.buildEventChoices(),
         compensate_failure: this.compensateFailure,
         use_last_parents: this.useLastParents,
+        override_insufficient_fans_forced_races: this.overrideInsufficientFansForcedRaces,
         scenario: this.selectedScenario,
         race_list: this.extraRace,
         skill_priority_list: skill_priority_list,
         skill_blacklist: skill_blacklist,
+        event_weights: {
+          junior: {
+            Friendship: this.eventWeightsJunior.Friendship,
+            Speed: this.eventWeightsJunior.Speed,
+            Stamina: this.eventWeightsJunior.Stamina,
+            Power: this.eventWeightsJunior.Power,
+            Guts: this.eventWeightsJunior.Guts,
+            Wisdom: this.eventWeightsJunior.Wits,
+            'Skill Hint': this.eventWeightsJunior.Hint,
+            'Skill Pts': this.eventWeightsJunior['Skill Points']
+          },
+          classic: {
+            Friendship: this.eventWeightsClassic.Friendship,
+            Speed: this.eventWeightsClassic.Speed,
+            Stamina: this.eventWeightsClassic.Stamina,
+            Power: this.eventWeightsClassic.Power,
+            Guts: this.eventWeightsClassic.Guts,
+            Wisdom: this.eventWeightsClassic.Wits,
+            'Skill Hint': this.eventWeightsClassic.Hint,
+            'Skill Pts': this.eventWeightsClassic['Skill Points']
+          },
+          senior: {
+            Friendship: this.eventWeightsSenior.Friendship,
+            Speed: this.eventWeightsSenior.Speed,
+            Stamina: this.eventWeightsSenior.Stamina,
+            Power: this.eventWeightsSenior.Power,
+            Guts: this.eventWeightsSenior.Guts,
+            Wisdom: this.eventWeightsSenior.Wits,
+            'Skill Hint': this.eventWeightsSenior.Hint,
+            'Skill Pts': this.eventWeightsSenior['Skill Points']
+          }
+        },
         cureAsapConditions: this.cureAsapConditions,
         expect_attribute: [this.expectSpeedValue, this.expectStaminaValue, this.expectPowerValue, this.expectWillValue, this.expectIntelligenceValue],
         follow_support_card: this.selectedSupportCard,
         follow_support_card_level: this.supportCardLevel,
         clock_use_limit: this.clockUseLimit,
         rest_treshold: this.restTreshold,
+        summer_score_threshold: this.summerScoreThreshold,
+        wit_fallback_threshold: this.witFallbackThreshold,
         learn_skill_threshold: this.learnSkillThreshold,
         race_tactic_1: this.selectedRaceTactic1,
         race_tactic_2: this.selectedRaceTactic2,
@@ -2325,18 +3280,33 @@ export default {
           this.extraWeight3.map(v => Math.max(-1, Math.min(1, v))),
           this.extraWeightSummer.map(v => Math.max(-1, Math.min(1, v)))
         ],
+        spirit_explosion: this.extraSpiritExplosion.map(v => Math.max(-1, Math.min(1, v))),
+        specialTraining: [
+          this.specialJunior,
+          this.specialClassic,
+          this.specialSenior,
+          this.specialSeniorAfterSummer,
+          this.specialFinale
+        ],
         scoreValue: [
           this.scoreValueJunior,
           this.scoreValueClassic,
           this.scoreValueSenior,
-          this.scoreValueSeniorAfterSummer
+          this.scoreValueSeniorAfterSummer,
+          this.scoreValueFinale
         ],
         // Motivation thresholds for trip decisions
         motivation_threshold_year1: this.motivationThresholdYear1,
         motivation_threshold_year2: this.motivationThresholdYear2,
         motivation_threshold_year3: this.motivationThresholdYear3,
         prioritize_recreation: this.prioritizeRecreation,
-        // New skill system data
+
+        pal_selected: this.palSelected,
+        pal_card_store: JSON.parse(JSON.stringify(this.palCardStore)),
+
+        pal_friendship_score: [...this.palFriendshipScore],
+        pal_card_multiplier: this.palCardMultiplier,
+
         selectedSkills: [...this.selectedSkills],
         blacklistedSkills: [...this.blacklistedSkills],
         skillAssignments: { ...this.skillAssignments },
@@ -3680,5 +4650,152 @@ export default {
 .race-toggle:hover{background:rgba(255,45,163,.08)!important;border-color:var(--accent)!important}
 .race-toggle.selected{background:transparent!important;border:2px solid var(--accent)!important;box-shadow:0 0 0 2px rgba(255,45,163,.35) inset,0 0 14px rgba(255,45,163,.35)!important}
 .btn-outline-primary.dropdown-toggle,.show>.btn-outline-primary.dropdown-toggle{border-color:var(--accent)!important;color:var(--accent)!important;background:transparent!important}
+
+.event-weights-section {
+  background: var(--surface-2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.event-weights-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--accent);
+}
+
+.event-weights-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.event-weights-title i {
+  color: var(--accent);
+  font-size: 20px;
+}
+
+.reset-weights-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  transition: all 0.2s ease;
+}
+
+.reset-weights-btn:hover {
+  background: var(--accent) !important;
+  color: white !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(255, 45, 163, 0.3);
+}
+
+.event-weights-description {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.description-text {
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.calculation-formula {
+  background: rgba(52, 133, 227, 0.1);
+  border-left: 3px solid #3485E3;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.calculation-formula code {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #7dd3fc;
+}
+
+.special-cases {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.special-cases strong {
+  color: var(--accent);
+}
+
+.special-cases ul {
+  margin-top: 8px;
+  margin-bottom: 0;
+  padding-left: 20px;
+}
+
+.special-cases li {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.special-cases li strong {
+  color: #7dd3fc;
+  font-weight: 600;
+}
+
+.event-weights-table {
+  font-size: 13px;
+  margin-bottom: 0;
+  background: transparent;
+}
+
+.event-weights-table thead {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.event-weights-table th {
+  font-weight: 600;
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  padding: 10px;
+}
+
+.event-weights-table td {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  padding: 8px;
+  color: var(--text);
+}
+
+.event-weights-table td strong {
+  color: var(--accent);
+}
+
+.event-weights-table input.form-control {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+
+.event-weights-table input.form-control:focus {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 45, 163, 0.2);
+  color: var(--text);
+}
 
 </style>

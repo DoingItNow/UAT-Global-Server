@@ -8,6 +8,8 @@ from module.umamusume.asset.point import *
 from module.umamusume.asset.template import *
 from module.umamusume.asset.template import UI_INFO
 from bot.recog.ocr import ocr_line, find_similar_text
+from bot.base.task import TaskStatus, EndTaskReason
+from bot.base.common import Area, ImageMatchConfig
 import bot.base.log as logger
 
 log = logger.get_logger(__name__)
@@ -48,8 +50,23 @@ def tt_next_sequence(ctx: UmamusumeContext):
     except Exception:
         pass
 
+def complete_team_trials(ctx: UmamusumeContext):
+    log.info("tt done - ending task")
+    ctx.ctrl.click(355, 1200, "tt2")
+    time.sleep(1)
+    ctx.ctrl.click(355, 1200, "tt1")
+    ctx.task.end_task(TaskStatus.TASK_STATUS_SUCCESS, EndTaskReason.COMPLETE)
+
+REF_CANT_TT_REGION = Template("cant_tt", UMAMUSUME_REF_TEMPLATE_PATH, 
+                               ImageMatchConfig(match_area=Area(369, 586, 439, 609)))
+
+REF_CANT_TT2_REGION = Template("cant_tt2", UMAMUSUME_REF_TEMPLATE_PATH, 
+                                ImageMatchConfig(match_area=Area(391, 43, 433, 81)))
+
 RULES_BY_MODE = {
     "TASK_EXECUTE_MODE_TEAM_TRIALS": [
+        {"type": "image", "ref": REF_CANT_TT_REGION, "action": complete_team_trials},
+        {"type": "image", "ref": REF_CANT_TT2_REGION, "action": complete_team_trials},
         {"type": "image", "ref": REF_HOME_GIFT, "action": lambda ctx: ctx.ctrl.click(522, 1228, "team trials resume")},
         {"type": "image", "ref": REF_TEAM_TRIALS, "action": lambda ctx: ctx.ctrl.click(106, 812, "team trials resume2")},
         {"type": "image", "ref": REF_TEAM_RACE, "action": lambda ctx: ctx.ctrl.click(351, 839, "team trials resume3")},
@@ -171,6 +188,27 @@ def after_hook(ctx: UmamusumeContext):
         if scv == ScenarioType.SCENARIO_TYPE_AOHARUHAI.value:
             if image_match(img[984:1025, 297:365], REF_AOHARU_RACE).find_match:
                 try:
+                    cd = getattr(getattr(ctx, 'cultivate_detail', None), 'event_cooldown_until', 0)
+                    if isinstance(cd, (int, float)) and time.time() < cd:
+                        return
+                except Exception:
+                    pass
+                
+                    h, w = img.shape[:2]
+                    team_roi_x1, team_roi_y1, team_roi_x2, team_roi_y2 = 70, 315, 162, 811
+                    team_roi_x1 = max(0, min(w, team_roi_x1)); team_roi_x2 = max(team_roi_x1, min(w, team_roi_x2))
+                    team_roi_y1 = max(0, min(h, team_roi_y1)); team_roi_y2 = max(team_roi_y1, min(h, team_roi_y2))
+                    team_roi = img[team_roi_y1:team_roi_y2, team_roi_x1:team_roi_x2]
+                    
+                    for team_tpl in [REF_AOHARUHAI_TEAM_NAME_0, REF_AOHARUHAI_TEAM_NAME_1, 
+                                     REF_AOHARUHAI_TEAM_NAME_2, REF_AOHARUHAI_TEAM_NAME_3]:
+                        if image_match(team_roi, team_tpl).find_match:
+                            log.info("Team name selection screen detected, skipping auto-click")
+                            return
+                except Exception:
+                    pass
+                
+                try:
                     ti = getattr(getattr(ctx, 'cultivate_detail', None), 'turn_info', None)
                     roi = img[343:389, 443:485]
                     refs = [REF_ROUND_1, REF_ROUND_2, REF_ROUND_3, REF_ROUND_4]
@@ -208,6 +246,8 @@ def after_hook(ctx: UmamusumeContext):
                     pass
                 ctx.ctrl.click(355, 1082, 'select opp2')
                 time.sleep(0.5)
+                ctx.ctrl.click(522, 930, 'select opp2 cont')
+                time.sleep(0.17)
                 ctx.ctrl.click(522, 930, 'select opp2 cont')
                 return
             if image_match(img[1204:1219, 476:597], REF_ALL_RES).find_match:
